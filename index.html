@@ -1,0 +1,1100 @@
+<meta charset="utf-8">
+<title>On-Screen ChArUco Target</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+/*
+  Deliberately single-theme. The board is an optical calibration target: the
+  squares must be #000 on #FFF in every viewer's theme or the measurement is
+  meaningless. Every colour below is therefore stated explicitly rather than
+  inherited, so the page holds on either host ground.
+*/
+:root{
+  --ink:#0E1317;
+  --ink-2:#4A5359;
+  --ink-3:#78838A;
+  --panel:#EDF1F2;
+  --card:#FFFFFF;
+  --rule:#C3CDD1;
+  --accent:#0B6E5F;
+  --warn:#8F4413;
+  --warn-soft:#FAEEE3;
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+html,body{height:100%}
+body{
+  margin:0;background:#FFFFFF;color:var(--ink);
+  font-family:var(--sans);
+  overflow:hidden;overscroll-behavior:none;touch-action:none;
+  -webkit-user-select:none;user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  -webkit-text-size-adjust:100%;
+}
+#stage{position:relative;height:100%;width:100%;background:#FFFFFF}
+#board{display:block;background:#FFFFFF}
+
+/* ---- confidence badge: always visible, because trust in the scale is the whole point ---- */
+#badge{
+  position:absolute;top:env(safe-area-inset-top,0px);right:0;
+  margin:8px;padding:5px 9px;border-radius:2px;
+  font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.06em;
+  text-transform:uppercase;
+  background:var(--accent);color:#FFFFFF;
+  box-shadow:0 1px 3px rgba(14,19,23,.22);
+  z-index:3;pointer-events:none;
+  font-variant-numeric:tabular-nums;
+}
+#badge.est{background:var(--warn)}
+#badge.amb{background:#6B5B16}
+
+/* ---- console ---- */
+#console{
+  position:absolute;left:0;right:0;bottom:0;z-index:4;
+  background:var(--panel);
+  border-top:1px solid var(--rule);
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));
+  display:flex;flex-direction:column;gap:10px;
+  max-height:74%;overflow-y:auto;overscroll-behavior:contain;
+  touch-action:pan-y;
+  transform:translateY(0);transition:transform .22s ease,opacity .22s ease;
+  box-shadow:0 -2px 14px rgba(14,19,23,.10);
+}
+#console[hidden]{display:flex!important;transform:translateY(102%);opacity:0;pointer-events:none}
+@media (prefers-reduced-motion:reduce){#console{transition:none}}
+
+.seg{display:flex;border:1px solid var(--rule);border-radius:3px;overflow:hidden;background:var(--card)}
+.seg button{
+  flex:1;appearance:none;border:0;background:var(--card);color:var(--ink-2);
+  font-family:var(--sans);font-size:13px;font-weight:500;
+  padding:9px 8px;min-height:38px;cursor:pointer;
+}
+.seg button + button{border-left:1px solid var(--rule)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#FFFFFF}
+.seg button:focus-visible{outline:2px solid var(--ink);outline-offset:-3px}
+
+.rows{display:grid;grid-template-columns:62px 1fr 88px;align-items:center;gap:2px 10px}
+.rows label{
+  font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--ink-2);
+}
+.rows .out{
+  font-family:var(--mono);font-size:12px;font-weight:500;text-align:right;
+  color:var(--ink);font-variant-numeric:tabular-nums;
+}
+input[type=range]{
+  width:100%;margin:0;height:34px;accent-color:var(--accent);
+  background:transparent;cursor:pointer;
+}
+input[type=range]:disabled{accent-color:var(--rule);cursor:default}
+input[type=range]:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+.hr{height:1px;background:var(--rule);margin:2px 0}
+
+.readout{
+  font-family:var(--mono);font-size:11.5px;line-height:1.55;color:var(--ink-2);
+  font-variant-numeric:tabular-nums;white-space:pre-wrap;
+}
+.readout b{color:var(--ink);font-weight:600}
+.readout .dim{color:var(--ink-3)}
+#tips{color:var(--ink-3)}
+
+.scalebox{
+  background:var(--card);border:1px solid var(--rule);border-left:3px solid var(--accent);
+  border-radius:2px;padding:8px 10px;
+  display:flex;flex-direction:column;gap:6px;
+}
+.scalebox.est{border-left-color:var(--warn);background:var(--warn-soft)}
+.scalebox.amb{border-left-color:#6B5B16}
+.scale-hd{
+  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--ink-3);font-weight:500;
+}
+.scale-val{font-family:var(--mono);font-size:15px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.scale-src{
+  font-family:var(--mono);font-size:11px;color:var(--ink-2);line-height:1.5;
+  white-space:pre-wrap;font-variant-numeric:tabular-nums;
+}
+.note{font-family:var(--sans);font-size:11.5px;line-height:1.5;color:var(--warn)}
+
+.alts{display:flex;flex-wrap:wrap;gap:6px}
+.alts button,.mini{
+  appearance:none;font-family:var(--mono);font-size:11px;font-weight:500;
+  padding:6px 9px;min-height:32px;border:1px solid var(--rule);border-radius:2px;
+  background:var(--card);color:var(--ink-2);cursor:pointer;
+}
+.alts button[aria-pressed="true"],.mini[aria-pressed="true"]{
+  background:var(--accent);color:#FFFFFF;border-color:var(--accent);
+}
+.alts button:focus-visible,.mini:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+
+.ppi{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ppi label{
+  font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--ink-2);font-weight:500;
+}
+.ppi input[type=number]{
+  font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;
+  width:5.5em;padding:7px 8px;min-height:34px;
+  border:1px solid var(--rule);border-radius:2px;background:var(--card);color:var(--ink);
+}
+.ppi input[type=number]:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
+
+#zoomwarn{
+  position:absolute;left:0;right:0;top:env(safe-area-inset-top,0px);z-index:5;
+  margin:8px;padding:9px 11px;border-radius:2px;
+  background:var(--warn);color:#FFFFFF;
+  font-family:var(--sans);font-size:12px;line-height:1.45;
+  box-shadow:0 2px 8px rgba(14,19,23,.28);
+}
+#hint{
+  position:absolute;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));
+  transform:translateX(-50%);z-index:2;
+  padding:7px 12px;border-radius:2px;background:rgba(14,19,23,.82);color:#FFFFFF;
+  font-family:var(--mono);font-size:11px;letter-spacing:.03em;white-space:nowrap;
+  transition:opacity .4s ease;
+}
+</style>
+
+<div id="stage">
+  <canvas id="board"></canvas>
+  <div id="badge">&hellip;</div>
+  <div id="zoomwarn" hidden></div>
+  <div id="hint" hidden>tap to show controls</div>
+
+  <div id="console">
+    <div class="seg" role="group" aria-label="Target type">
+      <button id="btn-checker" type="button" aria-pressed="true">Checkerboard</button>
+      <button id="btn-charuco" type="button" aria-pressed="false">ChArUco</button>
+    </div>
+
+    <div class="rows">
+      <label for="sq">Square</label>
+      <input id="sq" type="range" min="1" max="10" step="0.5" value="5" aria-label="Square size in millimetres">
+      <span class="out" id="sq-out">5.0 mm</span>
+
+      <label for="cols">Columns</label>
+      <input id="cols" type="range" min="2" max="40" step="1" value="9" aria-label="Columns">
+      <span class="out" id="cols-out">9</span>
+
+      <label for="rows">Rows</label>
+      <input id="rows" type="range" min="2" max="60" step="1" value="12" aria-label="Rows">
+      <span class="out" id="rows-out">12</span>
+    </div>
+
+    <div class="rows" id="marker-wrap" hidden>
+      <label for="mk">Marker</label>
+      <input id="mk" type="range" min="0.4" max="0.9" step="0.05" value="0.8" aria-label="Marker size as a fraction of the square">
+      <span class="out" id="mk-out">4.0 mm</span>
+    </div>
+
+    <div class="hr"></div>
+
+    <div class="readout" id="geom"></div>
+
+    <div class="scalebox" id="scalebox">
+      <div class="scale-hd"><span>Physical scale</span><span class="scale-val" id="scale-val"></span></div>
+      <div class="scale-src" id="scale-src"></div>
+      <div class="note" id="scale-note" hidden></div>
+      <div class="alts" id="alts" hidden></div>
+      <div class="ppi">
+        <label for="ppi">Override ppi</label>
+        <input id="ppi" type="number" min="60" max="900" step="1" inputmode="decimal" placeholder="auto">
+        <button class="mini" id="ppi-auto" type="button">Auto</button>
+        <button class="mini" id="verify" type="button" aria-pressed="false">Verify overlay</button>
+      </div>
+    </div>
+
+    <div class="readout" id="tips"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ===========================================================================
+   Constants - ported 1:1 from MainActivity.kt so the two renderers agree.
+   =========================================================================== */
+var CONTROLS_HIDE_DELAY_MS = 4000;
+
+var SQUARE_MIN_MM = 1.0, SQUARE_MAX_MM = 10.0, SQUARE_STEP_MM = 0.5, DEFAULT_SQUARE_MM = 5.0;
+var MIN_GRID = 2, DEFAULT_COLS = 9, DEFAULT_ROWS = 12;
+var MARKER_RATIO_MIN = 0.40, MARKER_RATIO_MAX = 0.90, MARKER_RATIO_STEP = 0.05, DEFAULT_MARKER_RATIO = 0.80;
+
+var MARKER_BITS  = 4;                 // 4x4 data grid (DICT_4X4_100)
+var MARKER_CELLS = MARKER_BITS + 2;   // + a 1-cell black border each side = 6
+var MAX_MARKERS  = 100;               // dictionary size
+var MAX_CELLS    = MAX_MARKERS * 2 + 1;
+
+/* Built from char codes so this file stays pure ASCII on disk and cannot be
+   mangled by a host that serves it without a charset. */
+var MIDDOT = String.fromCharCode(183);
+var DASHES = new RegExp("[" + String.fromCharCode(0x2013, 0x2014) + "]", "g");
+
+/* ISO/IEC 7810 ID-1 - the card in everyone's wallet, used by the verify overlay. */
+var CARD_W_MM = 85.60, CARD_H_MM = 53.98;
+
+/*
+  DICT_4X4_100 - the first 100 rows of OpenCV's DICT_4X4_1000 byte table, i.e.
+  exactly cv::aruco::DICT_4X4_100. Each marker is 16 data bits held as two
+  bytes; kept here as the same (byte0, byte1) pairs the Kotlin source lists, so
+  the two tables can be diffed by eye.
+  Source: OpenCV 4.x modules/objdetect/src/aruco/predefined_dictionaries.hpp
+*/
+var DICT_BYTES = [
+  [181,50],[15,154],[51,45],[153,70],[84,158],[121,205],[158,46],[196,242],[254,218],[207,86],
+  [249,145],[17,167],[14,183],[42,15],[36,177],[38,62],[70,101],[102,0],[108,94],[118,175],
+  [134,139],[176,43],[204,213],[221,130],[254,71],[148,113],[172,228],[165,84],[33,35],[52,111],
+  [68,21],[87,178],[158,207],[240,203],[8,174],[9,41],[24,117],[4,255],[13,246],[28,90],
+  [23,24],[42,40],[50,140],[56,178],[36,232],[46,235],[45,63],[75,100],[80,46],[80,19],
+  [81,148],[85,104],[93,65],[95,151],[104,1],[104,103],[97,36],[97,233],[107,18],[111,229],
+  [103,223],[126,27],[128,160],[131,68],[139,162],[147,122],[132,108],[133,42],[133,156],[156,137],
+  [159,161],[187,124],[188,4],[182,91],[191,200],[183,171],[202,31],[201,98],[217,88],[211,213],
+  [204,152],[199,160],[197,55],[233,93],[249,37],[251,187],[238,42],[247,77],[53,117],[138,173],
+  [118,23],[10,207],[6,75],[45,193],[73,216],[67,244],[79,54],[79,211],[105,228],[112,199]
+];
+var DICT_4X4_100 = DICT_BYTES.map(function (p) { return (p[0] << 8) | p[1]; });
+
+/** True when data bit (row, col) of marker `id` is BLACK. MSB-first, as OpenCV packs it. */
+function markerBit(id, row, col) {
+  if (id < 0 || id >= DICT_4X4_100.length) return false;
+  var bitIndex = row * MARKER_BITS + col;
+  return ((DICT_4X4_100[id] >>> (15 - bitIndex)) & 1) === 1;
+}
+
+/** White squares on a cols x rows chessboard (integer division, as in Kotlin). */
+function whiteSquares(cols, rows) { return Math.floor(cols * rows / 2); }
+
+function snap(v, step) { return Math.round(v / step) * step; }
+function clampInt(v, lo, hi) { return Math.min(Math.max(v, lo), hi); }
+
+/* ===========================================================================
+   Physical scale.
+
+   The web has no equivalent of Android's displayMetrics.xdpi - no API reports
+   true panel density, and CSS mm/in are pinned to the fiction that 1in = 96 CSS
+   px. So the scale is derived from the device's known physical screen width:
+
+       pxPerMm = (screen.width_css * devicePixelRatio) / physicalScreenWidthMm
+
+   screen.width_css * dpr is the render buffer width in real pixels, and it is
+   invariant to page zoom (both terms scale inversely), to Samsung's Screen zoom
+   setting (which moves density, not panel size), and to phones rendering below
+   native resolution (an S21 Ultra left on FHD+). It also handles Apple's
+   downsampling models for free, where the render buffer is not the panel:
+   iPhone 6-8 Plus render 1242x2208 onto a 1080x1920 panel, and 12/13 mini
+   render 1125x2436 onto 1080x2340.
+
+   Physical width comes from panel pixels / panel ppi, both fixed published
+   specs. Storing ppi (integer, +/-0.1%) beats storing the rounded diagonal
+   (+/-0.5%), so that is what the tables below hold.
+   =========================================================================== */
+
+/* iOS/iPadOS: (css short x css long @ dpr) is a near-unique signature.
+   p = panel pixels, ppi = panel density, n = the models sharing it.  */
+var IOS_SIGS = {
+  "320x480@1":   { p:[320,480],    ppi:163, n:"iPhone / 3G / 3GS" },
+  "320x480@2":   { p:[640,960],    ppi:326, n:"iPhone 4 / 4s" },
+  "320x568@2":   { p:[640,1136],   ppi:326, n:"iPhone 5 / 5c / 5s / SE (1st gen)" },
+  "375x667@2":   { p:[750,1334],   ppi:326, n:"iPhone 6 / 6s / 7 / 8 / SE (2nd-3rd gen)" },
+  "414x736@3":   { p:[1080,1920],  ppi:401, n:"iPhone 6 / 6s / 7 / 8 Plus",
+                   note:"Renders 1242x2208 and downsamples to the 1080x1920 panel. The scale accounts for it." },
+  "414x896@2":   { p:[828,1792],   ppi:326, n:"iPhone XR / 11" },
+  "414x896@3":   { p:[1242,2688],  ppi:458, n:"iPhone XS Max / 11 Pro Max" },
+  "375x812@3":   { p:[1125,2436],  ppi:458, n:"iPhone X / XS / 11 Pro",
+                   alts:[{ p:[1080,2340], ppi:476, n:"iPhone 12 mini / 13 mini" }] },
+  "390x844@3":   { p:[1170,2532],  ppi:460, n:"iPhone 12 / 13 / 14 / 16e" },
+  "428x926@3":   { p:[1284,2778],  ppi:458, n:"iPhone 12 / 13 Pro Max / 14 Plus" },
+  "393x852@3":   { p:[1179,2556],  ppi:460, n:"iPhone 14 Pro / 15 / 15 Pro / 16" },
+  "430x932@3":   { p:[1290,2796],  ppi:460, n:"iPhone 14 Pro Max / 15 Plus / 15 Pro Max / 16 Plus" },
+  "402x874@3":   { p:[1206,2622],  ppi:460, n:"iPhone 16 Pro / 17 / 17 Pro" },
+  "440x956@3":   { p:[1320,2868],  ppi:460, n:"iPhone 16 Pro Max / 17 Pro Max" },
+  "420x912@3":   { p:[1260,2736],  ppi:460, n:"iPhone Air" },
+  "744x1133@2":  { p:[1488,2266],  ppi:326, n:"iPad mini (6th-7th gen)" },
+  "768x1024@1":  { p:[768,1024],   ppi:132, n:"iPad / iPad 2" },
+  "768x1024@2":  { p:[1536,2048],  ppi:264, n:"iPad (3rd-6th) / Air / Air 2 / Pro 9.7-inch",
+                   alts:[{ p:[1536,2048], ppi:326, n:"iPad mini 2-5 (7.9-inch)" }] },
+  "810x1080@2":  { p:[1620,2160],  ppi:264, n:"iPad (7th-9th gen)" },
+  "820x1180@2":  { p:[1640,2360],  ppi:264, n:"iPad (10th-11th) / iPad Air 11-inch" },
+  "834x1112@2":  { p:[1668,2224],  ppi:264, n:"iPad Pro 10.5-inch" },
+  "834x1194@2":  { p:[1668,2388],  ppi:264, n:"iPad Pro 11-inch (1st-6th gen)" },
+  "834x1210@2":  { p:[1668,2420],  ppi:264, n:"iPad Pro 11-inch (7th gen and later)" },
+  "1024x1366@2": { p:[2048,2732],  ppi:264, n:"iPad Pro 12.9-inch / iPad Air 13-inch" },
+  "1032x1376@2": { p:[2064,2752],  ppi:264, n:"iPad Pro 13-inch" }
+};
+
+/* Android: keyed on the model string from UA client hints. Samsung reports SM-
+   codes with a region suffix, so those match by prefix. Entries with two
+   screens (folds) are disambiguated by the reported aspect ratio.
+   [ matchKeys, display name, [ [panelW, panelH, ppi, screenLabel], ... ] ]  */
+var ANDROID_DB = [
+  [["pixel 3"],        "Pixel 3",        [[1080,2160,443]]],
+  [["pixel 3 xl"],     "Pixel 3 XL",     [[1440,2960,523]]],
+  [["pixel 3a"],       "Pixel 3a",       [[1080,2220,441]]],
+  [["pixel 3a xl"],    "Pixel 3a XL",    [[1080,2160,400]]],
+  [["pixel 4"],        "Pixel 4",        [[1080,2280,444]]],
+  [["pixel 4 xl"],     "Pixel 4 XL",     [[1440,3040,537]]],
+  [["pixel 4a"],       "Pixel 4a",       [[1080,2340,443]]],
+  [["pixel 5"],        "Pixel 5",        [[1080,2340,432]]],
+  [["pixel 5a"],       "Pixel 5a",       [[1080,2400,413]]],
+  [["pixel 6"],        "Pixel 6",        [[1080,2400,411]]],
+  [["pixel 6 pro"],    "Pixel 6 Pro",    [[1440,3120,512]]],
+  [["pixel 6a"],       "Pixel 6a",       [[1080,2400,429]]],
+  [["pixel 7"],        "Pixel 7",        [[1080,2400,416]]],
+  [["pixel 7 pro"],    "Pixel 7 Pro",    [[1440,3120,512]]],
+  [["pixel 7a"],       "Pixel 7a",       [[1080,2400,431]]],
+  [["pixel 8"],        "Pixel 8",        [[1080,2400,428]]],
+  [["pixel 8 pro"],    "Pixel 8 Pro",    [[1344,2992,489]]],
+  [["pixel 8a"],       "Pixel 8a",       [[1080,2400,430]]],
+  [["pixel 9"],        "Pixel 9",        [[1080,2424,422]]],
+  [["pixel 9 pro"],    "Pixel 9 Pro",    [[1280,2856,495]]],
+  [["pixel 9 pro xl"], "Pixel 9 Pro XL", [[1344,2992,486]]],
+  [["pixel 9a"],       "Pixel 9a",       [[1080,2424,422]]],
+  [["pixel 10"],       "Pixel 10",       [[1080,2424,422]]],
+  [["pixel 10 pro"],   "Pixel 10 Pro",   [[1280,2856,495]]],
+  [["pixel 10 pro xl"],"Pixel 10 Pro XL",[[1344,2992,486]]],
+
+  [["sm-g970"], "Galaxy S10e",      [[1080,2280,438]]],
+  [["sm-g973"], "Galaxy S10",       [[1440,3040,550]]],
+  [["sm-g975"], "Galaxy S10+",      [[1440,3040,522]]],
+  [["sm-g980","sm-g981"], "Galaxy S20",  [[1440,3200,563]]],
+  [["sm-g985","sm-g986"], "Galaxy S20+", [[1440,3200,525]]],
+  [["sm-g988"], "Galaxy S20 Ultra", [[1440,3200,511]]],
+  [["sm-g991"], "Galaxy S21",       [[1080,2400,421]]],
+  [["sm-g996"], "Galaxy S21+",      [[1080,2400,394]]],
+  [["sm-g998"], "Galaxy S21 Ultra", [[1440,3200,515]]],
+  [["sm-s901"], "Galaxy S22",       [[1080,2340,425]]],
+  [["sm-s906"], "Galaxy S22+",      [[1080,2340,393]]],
+  [["sm-s908"], "Galaxy S22 Ultra", [[1440,3088,500]]],
+  [["sm-s911"], "Galaxy S23",       [[1080,2340,425]]],
+  [["sm-s916"], "Galaxy S23+",      [[1080,2340,393]]],
+  [["sm-s918"], "Galaxy S23 Ultra", [[1440,3088,500]]],
+  [["sm-s711"], "Galaxy S23 FE",    [[1080,2340,403]]],
+  [["sm-s921"], "Galaxy S24",       [[1080,2340,416]]],
+  [["sm-s926"], "Galaxy S24+",      [[1440,3120,513]]],
+  [["sm-s928"], "Galaxy S24 Ultra", [[1440,3120,505]]],
+  [["sm-s931"], "Galaxy S25",       [[1080,2340,416]]],
+  [["sm-s936"], "Galaxy S25+",      [[1440,3120,513]]],
+  [["sm-s938"], "Galaxy S25 Ultra", [[1440,3120,501]]],
+  [["sm-n970"], "Galaxy Note10",    [[1080,2280,401]]],
+  [["sm-n975"], "Galaxy Note10+",   [[1440,3040,498]]],
+  [["sm-n980","sm-n981"], "Galaxy Note20",       [[1080,2400,393]]],
+  [["sm-n985","sm-n986"], "Galaxy Note20 Ultra", [[1440,3088,496]]],
+  [["sm-a525","sm-a526"], "Galaxy A52", [[1080,2400,407]]],
+  [["sm-a536"], "Galaxy A53",       [[1080,2400,407]]],
+  [["sm-a546"], "Galaxy A54",       [[1080,2340,403]]],
+
+  [["sm-f900"], "Galaxy Fold",      [[1536,2152,362,"inner"],[720,1680,399,"cover"]]],
+  [["sm-f916"], "Galaxy Z Fold2",   [[1768,2208,373,"inner"],[816,2260,386,"cover"]]],
+  [["sm-f926"], "Galaxy Z Fold3",   [[1768,2208,374,"inner"],[832,2268,387,"cover"]]],
+  [["sm-f936"], "Galaxy Z Fold4",   [[1812,2176,373,"inner"],[904,2316,401,"cover"]]],
+  [["sm-f946"], "Galaxy Z Fold5",   [[1812,2176,374,"inner"],[904,2316,401,"cover"]]],
+  [["sm-f956"], "Galaxy Z Fold6",   [[1856,2160,374,"inner"],[968,2376,410,"cover"]]],
+  [["sm-f700"], "Galaxy Z Flip",    [[1080,2636,425,"inner"],[112,300,303,"cover"]]],
+  [["sm-f711"], "Galaxy Z Flip3",   [[1080,2640,426,"inner"],[260,512,302,"cover"]]],
+  [["sm-f721"], "Galaxy Z Flip4",   [[1080,2640,426,"inner"],[260,512,302,"cover"]]],
+  [["sm-f731"], "Galaxy Z Flip5",   [[1080,2640,426,"inner"],[720,748,306,"cover"]]],
+  [["sm-f741"], "Galaxy Z Flip6",   [[1080,2640,426,"inner"],[720,748,306,"cover"]]],
+
+  [["oneplus 13","cph2649","cph2653","pjz110"], "OnePlus 13",    [[1440,3168,510]]],
+  [["oneplus nord","ac2003","ac2001"],          "OnePlus Nord",  [[1080,2400,409]]],
+  [["redmi note 13","2312dra50"],               "Redmi Note 13", [[1080,2400,395]]]
+];
+
+function normModel(s) {
+  return String(s || "").toLowerCase().replace(DASHES, "-").replace(/\s+/g, " ").trim();
+}
+
+function findAndroid(model) {
+  var m = normModel(model), i, j, e, k, best = null;
+  if (!m) return null;
+  for (i = 0; i < ANDROID_DB.length; i++) {
+    e = ANDROID_DB[i];
+    for (j = 0; j < e[0].length; j++) if (e[0][j] === m) return e;
+  }
+  for (i = 0; i < ANDROID_DB.length; i++) {
+    e = ANDROID_DB[i];
+    for (j = 0; j < e[0].length; j++) {
+      k = e[0][j];
+      if (m.indexOf(k) === 0 && (!best || k.length > best.k.length)) best = { e: e, k: k };
+    }
+  }
+  if (best) return best.e;
+  for (i = 0; i < ANDROID_DB.length; i++) {
+    e = ANDROID_DB[i];
+    for (j = 0; j < e[0].length; j++) {
+      k = e[0][j];
+      if (m.indexOf(k) > 0 && (!best || k.length > best.k.length)) best = { e: e, k: k };
+    }
+  }
+  return best ? best.e : null;
+}
+
+/** Of several panels on one device (folds), the one whose aspect the browser reports. */
+function pickScreen(screens, shortCss, longCss) {
+  var want = longCss / shortCss, out = screens[0], bestErr = Infinity, i, a, err;
+  for (i = 0; i < screens.length; i++) {
+    a = Math.max(screens[i][0], screens[i][1]) / Math.min(screens[i][0], screens[i][1]);
+    err = Math.abs(a - want);
+    if (err < bestErr) { bestErr = err; out = screens[i]; }
+  }
+  return out;
+}
+
+var UA = navigator.userAgent || "";
+var IS_IOS = /iPad|iPhone|iPod/.test(UA) ||
+             (navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1);
+var IS_ANDROID = /Android/.test(UA);
+var IS_TOUCH = (navigator.maxTouchPoints || 0) > 0 || IS_IOS || IS_ANDROID;
+
+/* Everything the readout needs to justify the number it is using. */
+var scale = {
+  pxPerMm: 0,          // in canvas backing pixels, which are real device pixels
+  confidence: "est",   // "db" | "amb" | "est" | "manual"
+  device: "",
+  method: "",
+  note: "",
+  alts: null,          // model names, when the signature is ambiguous
+  altIndex: 0,
+  renderPpi: 0
+};
+
+var manualPpi = null;
+try {
+  var stored = localStorage.getItem("charuco.ppi.v1");
+  if (stored) manualPpi = parseFloat(stored) || null;
+} catch (e) { /* private mode, or site data blocked */ }
+
+var altChoice = 0;
+try {
+  var storedAlt = localStorage.getItem("charuco.alt.v1");
+  if (storedAlt) altChoice = parseInt(storedAlt, 10) || 0;
+} catch (e) { /* ignore */ }
+
+var androidModel = null;
+
+function readAndroidModel() {
+  var uad = navigator.userAgentData;
+  var legacy = function () {
+    // Firefox and older Chrome still carry the model in the UA string.
+    // Chrome's reduced UA replaces it with "K", which is not a model.
+    var m = /Android\s[\d.]+;\s([^);]+?)(?:\s+Build\/|\))/.exec(UA);
+    if (m) {
+      var s = m[1].trim();
+      if (s && s !== "K" && s.length > 1) return { model: s, src: "user-agent string" };
+    }
+    return null;
+  };
+  if (uad && uad.getHighEntropyValues) {
+    return uad.getHighEntropyValues(["model"]).then(function (v) {
+      if (v && v.model) return { model: v.model, src: "UA client hints" };
+      return legacy();
+    })["catch"](legacy);
+  }
+  return Promise.resolve(legacy());
+}
+
+function resolveScale() {
+  var dpr = window.devicePixelRatio || 1;
+  var sw = Math.min(screen.width || 0, screen.height || 0);
+  var sh = Math.max(screen.width || 0, screen.height || 0);
+  var renderShort = sw * dpr;
+
+  scale.alts = null;
+  scale.note = "";
+
+  // 1. A manual override wins outright. The number entered is ppi in render-pixel space.
+  if (manualPpi && manualPpi > 20) {
+    scale.pxPerMm = manualPpi / 25.4;
+    scale.renderPpi = manualPpi;
+    scale.confidence = "manual";
+    scale.device = "manual entry";
+    scale.method = "ppi entered by hand";
+    return;
+  }
+
+  // 2. iOS / iPadOS, by screen signature.
+  if (IS_IOS && sw && sh) {
+    var key = sw + "x" + sh + "@" + (Math.round(dpr * 1000) / 1000);
+    var hit = IOS_SIGS[key];
+    if (hit) {
+      var opts = [hit].concat(hit.alts || []);
+      var pick = opts[Math.min(altChoice, opts.length - 1)];
+      var physShortMm = Math.min(pick.p[0], pick.p[1]) / pick.ppi * 25.4;
+      scale.pxPerMm = renderShort / physShortMm;
+      scale.renderPpi = scale.pxPerMm * 25.4;
+      scale.device = pick.n;
+      scale.method = "screen signature " + key;
+      scale.confidence = opts.length > 1 ? "amb" : "db";
+      if (pick.note) scale.note = pick.note;
+      if (opts.length > 1) {
+        scale.alts = opts.map(function (o) { return o.n; });
+        scale.altIndex = Math.min(altChoice, opts.length - 1);
+        scale.note = "Models with different panel densities share this screen signature and the " +
+                     "web cannot tell them apart. Pick the right one if it is wrong.";
+      }
+      return;
+    }
+    scale.pxPerMm = dpr * 160 / 25.4;
+    scale.renderPpi = scale.pxPerMm * 25.4;
+    scale.confidence = "est";
+    scale.device = "unrecognised iOS device";
+    scale.method = "estimate from devicePixelRatio";
+    scale.note = "Signature " + key + " is not in the table. If iOS Display Zoom is set to " +
+                 "Larger Text, switch it to Default - it changes the reported screen size. " +
+                 "Otherwise enter the panel ppi below.";
+    return;
+  }
+
+  // 3. Android, by model string.
+  if (IS_ANDROID && androidModel && sw) {
+    var e = findAndroid(androidModel.model);
+    if (e) {
+      var s = pickScreen(e[2], sw, sh);
+      var physMm = Math.min(s[0], s[1]) / s[2] * 25.4;
+      scale.pxPerMm = renderShort / physMm;
+      scale.renderPpi = scale.pxPerMm * 25.4;
+      scale.device = e[1] + (s[3] ? " (" + s[3] + " screen)" : "");
+      scale.method = "device database via " + androidModel.src + ": " + androidModel.model;
+      scale.confidence = "db";
+      // Aspect cross-check: catches a wrong table row or an unexpected panel variant.
+      var wantA = sh / sw, haveA = Math.max(s[0], s[1]) / Math.min(s[0], s[1]);
+      if (Math.abs(wantA - haveA) / haveA > 0.04) {
+        scale.confidence = "amb";
+        scale.note = "Reported aspect ratio " + wantA.toFixed(3) + " does not match this panel's " +
+                     haveA.toFixed(3) + ", so the database row may be wrong for this variant. " +
+                     "Check it with the verify overlay.";
+      }
+      return;
+    }
+  }
+
+  // 4. Honest fallback. Android sets densityDpi as an approximation of real ppi
+  //    and dpr = densityDpi / 160, so dpr * 160 recovers that approximation.
+  var assumedDpi = IS_TOUCH ? 160 : 96;
+  scale.pxPerMm = dpr * assumedDpi / 25.4;
+  scale.renderPpi = scale.pxPerMm * 25.4;
+  scale.confidence = "est";
+  scale.device = androidModel ? ("unlisted model: " + androidModel.model)
+                              : "model not reported by this browser";
+  scale.method = "estimate: devicePixelRatio x " + assumedDpi + " dpi";
+  scale.note = "This is an estimate and can be several percent out - and badly out if the phone's " +
+               "display-size or screen-zoom setting has been changed. Measure with the verify " +
+               "overlay and enter the true ppi.";
+}
+
+/** Sanity figure for the readout: the screen diagonal the current scale implies. */
+function impliedDiagonalIn() {
+  var dpr = window.devicePixelRatio || 1;
+  var w = Math.min(screen.width || 0, screen.height || 0) * dpr;
+  var h = Math.max(screen.width || 0, screen.height || 0) * dpr;
+  if (!scale.pxPerMm) return 0;
+  return Math.sqrt(w * w + h * h) / (scale.pxPerMm * 25.4);
+}
+
+/* ===========================================================================
+   State
+   =========================================================================== */
+var state = {
+  boardType: "checker",            // "checker" | "charuco"
+  squareMm: DEFAULT_SQUARE_MM,
+  cols: DEFAULT_COLS,
+  rows: DEFAULT_ROWS,
+  markerRatio: DEFAULT_MARKER_RATIO,
+  verify: false
+};
+
+var cv = document.getElementById("board");
+var ctx = cv.getContext("2d", { alpha: false });
+var stage = document.getElementById("stage");
+var panel = document.getElementById("console");
+var badge = document.getElementById("badge");
+
+var hideTimer = null;
+var controlsVisible = true;
+
+function showControls(v) {
+  controlsVisible = v;
+  panel.hidden = !v;
+  armHide();
+  requestAnimationFrame(resize);
+}
+function armHide() {
+  if (hideTimer) clearTimeout(hideTimer);
+  if (controlsVisible) {
+    hideTimer = setTimeout(function () { showControls(false); }, CONTROLS_HIDE_DELAY_MS);
+  }
+}
+
+/* ===========================================================================
+   Rendering - the geometry below mirrors drawCheckerboard / drawCharucoBoard /
+   drawArucoMarker from MainActivity.kt, including where each value is rounded.
+   Everything is in canvas backing pixels, which are real device pixels, so the
+   board lands on whole pixels exactly as it does on Android.
+   =========================================================================== */
+var lastGeom = null;
+
+function resize() {
+  var r = stage.getBoundingClientRect();
+  var dpr = window.devicePixelRatio || 1;
+  var w = Math.max(1, Math.round(r.width * dpr));
+  var h = Math.max(1, Math.round(r.height * dpr));
+  if (cv.width !== w || cv.height !== h) {
+    cv.width = w; cv.height = h;
+    cv.style.width = r.width + "px";
+    cv.style.height = r.height + "px";
+  }
+  draw();
+}
+
+function draw() {
+  var W = cv.width, H = cv.height;
+  var pxPerMmX = scale.pxPerMm, pxPerMmY = scale.pxPerMm;
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillRect(0, 0, W, H);
+  if (!pxPerMmX) return;
+
+  // Pixel-snapped square size: what the board is actually drawn at.
+  var stepX = Math.max(1, Math.round(pxPerMmX * state.squareMm));
+  var stepY = Math.max(1, Math.round(pxPerMmY * state.squareMm));
+
+  // Upper bounds: whole squares must fit on screen, and for ChArUco the white
+  // squares must not outnumber the dictionary.
+  var fitCols = Math.max(MIN_GRID, Math.floor(W / stepX));
+  var fitRows = Math.max(MIN_GRID, Math.floor(H / stepY));
+  var charuco = state.boardType === "charuco";
+
+  var maxCols = charuco
+    ? Math.max(MIN_GRID, Math.min(fitCols, Math.floor(MAX_CELLS / state.rows)))
+    : fitCols;
+  var drawCols = clampInt(state.cols, MIN_GRID, maxCols);
+  var maxRows = charuco
+    ? Math.max(MIN_GRID, Math.min(fitRows, Math.floor(MAX_CELLS / drawCols)))
+    : fitRows;
+  var drawRows = clampInt(state.rows, MIN_GRID, maxRows);
+
+  // Keep the slider positions in step with the clamped values.
+  state.cols = drawCols;
+  state.rows = drawRows;
+
+  ctx.fillStyle = "#000000";
+  if (charuco) drawCharucoBoard(drawCols, drawRows, stepX, stepY, state.markerRatio, W, H);
+  else         drawCheckerboard(drawCols, drawRows, stepX, stepY, W, H);
+
+  if (state.verify) drawVerifyOverlay(W, H, pxPerMmX);
+
+  lastGeom = {
+    cols: drawCols, rows: drawRows, maxCols: maxCols, maxRows: maxRows,
+    stepX: stepX, stepY: stepY, charuco: charuco,
+    sqXMm: stepX / pxPerMmX, sqYMm: stepY / pxPerMmY
+  };
+  syncControls();
+}
+
+/** Plain chessboard of cols x rows whole squares, centred. (row + col) even is black. */
+function drawCheckerboard(cols, rows, stepX, stepY, W, H) {
+  var left = (W - cols * stepX) / 2, top = (H - rows * stepY) / 2;
+  var xe = [], ye = [], i, row, col, x0, x1, y0, y1;
+  for (i = 0; i <= cols; i++) xe.push(Math.round(left + i * stepX));
+  for (i = 0; i <= rows; i++) ye.push(Math.round(top + i * stepY));
+
+  for (row = 0; row < rows; row++) {
+    y0 = ye[row]; y1 = ye[row + 1];
+    if (y1 <= y0) continue;
+    for (col = 0; col < cols; col++) {
+      if ((row + col) % 2 !== 0) continue;
+      x0 = xe[col]; x1 = xe[col + 1];
+      if (x1 <= x0) continue;
+      ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    }
+  }
+}
+
+/**
+ * ChArUco board: a chessboard with a unique ArUco marker centred in every white
+ * square, scaled to `ratio` of the square. The caller keeps the white-square
+ * count inside the dictionary; the markerId guard is a backstop, not the policy.
+ */
+function drawCharucoBoard(cols, rows, stepX, stepY, ratio, W, H) {
+  var left = (W - cols * stepX) / 2, top = (H - rows * stepY) / 2;
+  var xe = [], ye = [], i, row, col, x0, x1, y0, y1, sqW, sqH, mW, mH, mLeft, mTop;
+  for (i = 0; i <= cols; i++) xe.push(Math.round(left + i * stepX));
+  for (i = 0; i <= rows; i++) ye.push(Math.round(top + i * stepY));
+
+  var markerId = 0;
+  for (row = 0; row < rows; row++) {
+    y0 = ye[row]; y1 = ye[row + 1];
+    if (y1 <= y0) continue;
+    for (col = 0; col < cols; col++) {
+      x0 = xe[col]; x1 = xe[col + 1];
+      if (x1 <= x0) continue;
+
+      if ((row + col) % 2 === 0) {
+        ctx.fillRect(x0, y0, x1 - x0, y1 - y0);          // solid black square
+      } else if (markerId < MAX_MARKERS) {
+        sqW = x1 - x0; sqH = y1 - y0;
+        mW = sqW * ratio; mH = sqH * ratio;
+        mLeft = Math.round(x0 + (sqW - mW) / 2);         // pixel-snap the marker
+        mTop  = Math.round(y0 + (sqH - mH) / 2);
+        drawArucoMarker(markerId, mLeft, mTop, Math.round(mLeft + mW), Math.round(mTop + mH));
+        markerId++;
+      }
+    }
+  }
+}
+
+/*
+  One DICT_4X4_100 marker inside a pixel-snapped rect. 6x6 cells: a 1-cell black
+  border all round, then the 4x4 data grid.
+
+    +------------------+
+    | B  B  B  B  B  B |  <- border (all black)
+    | B  d  d  d  d  B |  <- data row 0
+    | B  d  d  d  d  B |  <- data row 1
+    | B  d  d  d  d  B |  <- data row 2
+    | B  d  d  d  d  B |  <- data row 3
+    | B  B  B  B  B  B |  <- border (all black)
+    +------------------+
+*/
+function drawArucoMarker(id, left, top, right, bottom) {
+  var totalW = right - left, totalH = bottom - top;
+  var xe = [], ye = [], i, mr, mc, border, isBlack, x0, y0, x1, y1;
+  for (i = 0; i <= MARKER_CELLS; i++) {
+    xe.push(left + Math.round(i * totalW / MARKER_CELLS));
+    ye.push(top  + Math.round(i * totalH / MARKER_CELLS));
+  }
+  for (mr = 0; mr < MARKER_CELLS; mr++) {
+    for (mc = 0; mc < MARKER_CELLS; mc++) {
+      border = mr === 0 || mr === MARKER_CELLS - 1 || mc === 0 || mc === MARKER_CELLS - 1;
+      isBlack = border ? true : !markerBit(id, mr - 1, mc - 1);
+      if (!isBlack) continue;
+      x0 = xe[mc]; y0 = ye[mr]; x1 = xe[mc + 1]; y1 = ye[mr + 1];
+      if (x1 > x0 && y1 > y0) ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    }
+  }
+}
+
+/*
+  Verify overlay: an ISO/IEC 7810 ID-1 card outline (85.60 x 53.98 mm) and a
+  50 mm rule with 1 mm ticks. Hold a bank card or a steel rule against the glass;
+  if they match, the detected scale is right. Drawn in the console accent so it
+  can never be mistaken for part of the target - switch it off before capturing.
+*/
+function drawVerifyOverlay(W, H, pxPerMm) {
+  var mm = function (v) { return v * pxPerMm; };
+  var landscape = W > H;
+  var cardW = mm(landscape ? CARD_W_MM : CARD_H_MM);
+  var cardH = mm(landscape ? CARD_H_MM : CARD_W_MM);
+  var lw = Math.max(2, Math.round(pxPerMm * 0.25));
+  var i, t, bx, by, rulLen, fs, cx, cy;
+
+  ctx.save();
+  ctx.lineWidth = lw;
+  ctx.strokeStyle = "#0B6E5F";
+  ctx.fillStyle = "rgba(255,255,255,0.88)";
+
+  cx = (W - cardW) / 2; cy = (H - cardH) / 2;
+  ctx.fillRect(cx, cy, cardW, cardH);
+  ctx.strokeRect(cx + lw / 2, cy + lw / 2, cardW - lw, cardH - lw);
+
+  ctx.fillStyle = "#0B6E5F";
+  fs = Math.max(11, Math.round(mm(2.6)));
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.font = "600 " + fs + "px ui-monospace, monospace";
+  ctx.fillText("ID-1 card  85.60 x 53.98 mm", cx + cardW / 2, cy + mm(2.5));
+  ctx.font = "400 " + fs + "px ui-monospace, monospace";
+  ctx.fillText(scale.renderPpi.toFixed(0) + " ppi  " + pxPerMm.toFixed(2) + " px/mm",
+               cx + cardW / 2, cy + cardH - mm(2.5) - fs);
+
+  // 50 mm rule with 1 mm ticks, along the long axis, inside the card.
+  rulLen = mm(50);
+  if (landscape) {
+    bx = cx + (cardW - rulLen) / 2; by = cy + cardH / 2;
+    ctx.fillRect(bx, by, rulLen, lw);
+    for (i = 0; i <= 50; i++) {
+      t = i % 10 === 0 ? mm(3.4) : (i % 5 === 0 ? mm(2.2) : mm(1.2));
+      ctx.fillRect(bx + mm(i), by - t, lw, t);
+    }
+  } else {
+    by = cy + (cardH - rulLen) / 2; bx = cx + cardW / 2;
+    ctx.fillRect(bx, by, lw, rulLen);
+    for (i = 0; i <= 50; i++) {
+      t = i % 10 === 0 ? mm(3.4) : (i % 5 === 0 ? mm(2.2) : mm(1.2));
+      ctx.fillRect(bx - t, by + mm(i), t, lw);
+    }
+  }
+  ctx.restore();
+}
+
+/* ===========================================================================
+   Console wiring
+   =========================================================================== */
+var el = {
+  checker: document.getElementById("btn-checker"),
+  charuco: document.getElementById("btn-charuco"),
+  sq: document.getElementById("sq"), sqOut: document.getElementById("sq-out"),
+  cols: document.getElementById("cols"), colsOut: document.getElementById("cols-out"),
+  rows: document.getElementById("rows"), rowsOut: document.getElementById("rows-out"),
+  mkWrap: document.getElementById("marker-wrap"),
+  mk: document.getElementById("mk"), mkOut: document.getElementById("mk-out"),
+  geom: document.getElementById("geom"),
+  scalebox: document.getElementById("scalebox"),
+  scaleVal: document.getElementById("scale-val"),
+  scaleSrc: document.getElementById("scale-src"),
+  scaleNote: document.getElementById("scale-note"),
+  alts: document.getElementById("alts"),
+  ppi: document.getElementById("ppi"),
+  ppiAuto: document.getElementById("ppi-auto"),
+  verify: document.getElementById("verify"),
+  tips: document.getElementById("tips"),
+  zoomwarn: document.getElementById("zoomwarn"),
+  hint: document.getElementById("hint")
+};
+
+el.sq.min = String(SQUARE_MIN_MM);
+el.sq.max = String(SQUARE_MAX_MM);
+el.sq.step = String(SQUARE_STEP_MM);
+el.mk.min = String(MARKER_RATIO_MIN);
+el.mk.max = String(MARKER_RATIO_MAX);
+el.mk.step = String(MARKER_RATIO_STEP);
+
+function syncControls() {
+  var g = lastGeom, t, markerPx, diag, badgeText;
+
+  el.checker.setAttribute("aria-pressed", String(state.boardType === "checker"));
+  el.charuco.setAttribute("aria-pressed", String(state.boardType === "charuco"));
+  el.mkWrap.hidden = state.boardType !== "charuco";
+
+  el.sq.value = String(state.squareMm);
+  el.sqOut.textContent = state.squareMm.toFixed(1) + " mm";
+  el.mk.value = String(state.markerRatio);
+  el.mkOut.textContent = (state.squareMm * state.markerRatio).toFixed(1) + " mm";
+
+  if (g) {
+    el.cols.max = String(Math.max(MIN_GRID + 1, g.maxCols));
+    el.rows.max = String(Math.max(MIN_GRID + 1, g.maxRows));
+    el.cols.disabled = g.maxCols <= MIN_GRID;
+    el.rows.disabled = g.maxRows <= MIN_GRID;
+    el.cols.value = String(g.cols); el.colsOut.textContent = String(g.cols);
+    el.rows.value = String(g.rows); el.rowsOut.textContent = String(g.rows);
+
+    // Rendered geometry, not requested geometry: the board is drawn on whole
+    // pixels, so these are the numbers to feed the calibrator.
+    t = "<b>" + g.cols + " x " + g.rows + " squares</b>  &middot;  " +
+        (g.cols * g.sqXMm).toFixed(1) + " x " + (g.rows * g.sqYMm).toFixed(1) + " mm board\n" +
+        '<span class="dim">square: ' + g.sqXMm.toFixed(3) + " x " + g.sqYMm.toFixed(3) +
+        " mm  (" + g.stepX + " x " + g.stepY + " px)</span>";
+    if (g.charuco) {
+      markerPx = Math.min(g.stepX, g.stepY) * state.markerRatio;
+      t += '\n<span class="dim">DICT_4X4_100  &middot;  ' + whiteSquares(g.cols, g.rows) +
+           " markers  &middot;  " + (markerPx / MARKER_CELLS).toFixed(1) + " px per marker cell</span>";
+    }
+    el.geom.innerHTML = t;
+  }
+
+  el.scalebox.className = "scalebox" +
+    (scale.confidence === "est" ? " est" : scale.confidence === "amb" ? " amb" : "");
+  el.scaleVal.textContent = scale.pxPerMm.toFixed(3) + " px/mm";
+  diag = impliedDiagonalIn();
+  el.scaleSrc.textContent =
+    scale.renderPpi.toFixed(0) + " ppi " + MIDDOT + " " + (scale.device || "unknown device") + "\n" +
+    scale.method + "\nimplies a " + diag.toFixed(2) + " inch screen";
+  el.scaleNote.hidden = !scale.note;
+  el.scaleNote.textContent = scale.note;
+
+  if (scale.alts) {
+    el.alts.hidden = false;
+    if (el.alts.getAttribute("data-built") !== scale.alts.join("|")) {
+      el.alts.setAttribute("data-built", scale.alts.join("|"));
+      el.alts.innerHTML = "";
+      scale.alts.forEach(function (name, i) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = name;
+        b.setAttribute("aria-pressed", String(i === scale.altIndex));
+        b.addEventListener("click", function (ev) {
+          ev.stopPropagation();
+          altChoice = i;
+          try { localStorage.setItem("charuco.alt.v1", String(i)); } catch (err) {}
+          resolveScale(); draw(); armHide();
+        });
+        el.alts.appendChild(b);
+      });
+    } else {
+      Array.prototype.forEach.call(el.alts.children, function (b, i) {
+        b.setAttribute("aria-pressed", String(i === scale.altIndex));
+      });
+    }
+  } else {
+    el.alts.hidden = true;
+    el.alts.setAttribute("data-built", "");
+  }
+
+  if (document.activeElement !== el.ppi) {
+    el.ppi.value = manualPpi ? String(Math.round(manualPpi * 10) / 10) : "";
+  }
+  el.verify.setAttribute("aria-pressed", String(state.verify));
+
+  badgeText = scale.confidence === "db"     ? "scale ok " + scale.renderPpi.toFixed(0) + " ppi"
+            : scale.confidence === "manual" ? "manual " + scale.renderPpi.toFixed(0) + " ppi"
+            : scale.confidence === "amb"    ? "confirm model"
+            :                                 "estimated scale";
+  badge.textContent = badgeText;
+  badge.className = (scale.confidence === "db" || scale.confidence === "manual") ? ""
+                  : scale.confidence === "amb" ? "amb" : "est";
+}
+
+function onChange() { armHide(); draw(); }
+
+el.checker.addEventListener("click", function (e) { e.stopPropagation(); state.boardType = "checker"; onChange(); });
+el.charuco.addEventListener("click", function (e) { e.stopPropagation(); state.boardType = "charuco"; onChange(); });
+el.sq.addEventListener("input", function () { state.squareMm = snap(parseFloat(el.sq.value), SQUARE_STEP_MM); onChange(); });
+el.cols.addEventListener("input", function () { state.cols = Math.round(parseFloat(el.cols.value)); onChange(); });
+el.rows.addEventListener("input", function () { state.rows = Math.round(parseFloat(el.rows.value)); onChange(); });
+el.mk.addEventListener("input", function () { state.markerRatio = snap(parseFloat(el.mk.value), MARKER_RATIO_STEP); onChange(); });
+
+el.verify.addEventListener("click", function (e) {
+  e.stopPropagation();
+  state.verify = !state.verify;
+  onChange();
+});
+el.ppi.addEventListener("change", function () {
+  var v = parseFloat(el.ppi.value);
+  manualPpi = (isFinite(v) && v >= 60 && v <= 900) ? v : null;
+  try {
+    if (manualPpi) localStorage.setItem("charuco.ppi.v1", String(manualPpi));
+    else localStorage.removeItem("charuco.ppi.v1");
+  } catch (e) {}
+  resolveScale(); onChange();
+});
+el.ppiAuto.addEventListener("click", function (e) {
+  e.stopPropagation();
+  manualPpi = null;
+  try { localStorage.removeItem("charuco.ppi.v1"); } catch (err) {}
+  resolveScale(); onChange();
+});
+panel.addEventListener("click", function (e) { e.stopPropagation(); armHide(); });
+panel.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
+
+/* Tap the board to toggle the console, exactly as on Android. */
+stage.addEventListener("click", function () { showControls(!controlsVisible); });
+
+/* ===========================================================================
+   Web-only housekeeping the Android app gets from the OS
+   =========================================================================== */
+
+/* Screen brightness has no web API - say so rather than pretend. */
+el.tips.textContent =
+  "Set screen brightness to maximum by hand - the web has no brightness API.\n" +
+  "Leave the phone's display-size / screen-zoom setting at its default.";
+
+/* The equivalent of FLAG_KEEP_SCREEN_ON. */
+var wakeLock = null;
+function keepAwake() {
+  try {
+    if ("wakeLock" in navigator && document.visibilityState === "visible") {
+      navigator.wakeLock.request("screen").then(function (lock) {
+        wakeLock = lock;
+        lock.addEventListener("release", function () { wakeLock = null; });
+      })["catch"](function () { /* not permitted in this frame; the screen may dim */ });
+    }
+  } catch (e) { /* ignore */ }
+}
+document.addEventListener("visibilitychange", function () {
+  if (document.visibilityState === "visible" && !wakeLock) keepAwake();
+});
+
+/* Fullscreen on the first tap: the only way to reclaim the browser's chrome. */
+stage.addEventListener("click", function () {
+  keepAwake();
+  var d = document;
+  if (!d.fullscreenElement && d.documentElement.requestFullscreen) {
+    var p = d.documentElement.requestFullscreen({ navigationUI: "hide" });
+    if (p && p["catch"]) p["catch"](function () {});
+  }
+}, { once: true });
+
+/*
+  Pinch zoom and desktop page zoom both threaten physical accuracy. Page zoom is
+  absorbed by the px/mm formula, but a visual-viewport pinch is pure
+  magnification and cannot be - so refuse to be quiet about it.
+*/
+function checkZoom() {
+  var vv = window.visualViewport;
+  var s = vv ? vv.scale : 1;
+  if (s && Math.abs(s - 1) > 0.01) {
+    el.zoomwarn.hidden = false;
+    el.zoomwarn.textContent = "Pinch zoom is at " + (s * 100).toFixed(0) +
+      "%, so every dimension on screen is wrong by that factor. Pinch back to 100%.";
+  } else {
+    el.zoomwarn.hidden = true;
+  }
+}
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", function () { checkZoom(); resize(); });
+  window.visualViewport.addEventListener("scroll", checkZoom);
+}
+["gesturestart", "gesturechange", "gestureend"].forEach(function (t) {
+  document.addEventListener(t, function (e) { e.preventDefault(); }, { passive: false });
+});
+document.addEventListener("dblclick", function (e) { e.preventDefault(); }, { passive: false });
+
+/* The published skeleton supplies its own viewport meta; make sure ours wins. */
+(function ensureViewport() {
+  var want = "width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, " +
+             "user-scalable=no, viewport-fit=cover";
+  var m = document.querySelector('head meta[name="viewport"]');
+  if (!m) { m = document.createElement("meta"); m.name = "viewport"; document.head.appendChild(m); }
+  if (m.content !== want) m.content = want;
+})();
+
+/* devicePixelRatio changes when the page is zoomed or moved between displays. */
+var dprWatch = null;
+function onDpr() { resolveScale(); watchDpr(); resize(); }
+function watchDpr() {
+  if (dprWatch && dprWatch.removeEventListener) dprWatch.removeEventListener("change", onDpr);
+  dprWatch = window.matchMedia("(resolution: " + (window.devicePixelRatio || 1) + "dppx)");
+  if (dprWatch.addEventListener) dprWatch.addEventListener("change", onDpr);
+}
+watchDpr();
+
+if (window.ResizeObserver) new ResizeObserver(function () { resize(); }).observe(stage);
+window.addEventListener("resize", resize);
+window.addEventListener("orientationchange", function () {
+  setTimeout(function () { resolveScale(); resize(); }, 250);
+});
+
+/* ---- boot: draw immediately with what we know, refine once UA hints land ---- */
+function boot() {
+  resolveScale();
+  resize();
+  checkZoom();
+  armHide();
+  if (IS_ANDROID) {
+    readAndroidModel().then(function (m) {
+      androidModel = m;
+      resolveScale();
+      draw();
+    });
+  }
+  // A one-off nudge that the board is tappable, then out of the way.
+  setTimeout(function () {
+    if (controlsVisible) return;
+    el.hint.hidden = false;
+    setTimeout(function () { el.hint.style.opacity = "0"; }, 2200);
+    setTimeout(function () { el.hint.hidden = true; }, 2800);
+  }, CONTROLS_HIDE_DELAY_MS + 400);
+}
+
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(function () { draw(); });
+}
+boot();
+</script>

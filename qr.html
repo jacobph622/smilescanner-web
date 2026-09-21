@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Target Page QR</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ink:#0E1317; --ink-2:#4A5359; --ink-3:#78838A;
+  --panel:#EDF1F2; --card:#FFFFFF; --rule:#C3CDD1; --accent:#0B6E5F;
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--panel);color:var(--ink);font-family:var(--sans);
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:24px 16px;
+}
+main{width:100%;max-width:420px;display:flex;flex-direction:column;gap:16px}
+h1{
+  margin:0;font-family:var(--mono);font-size:12px;font-weight:600;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2);
+}
+.card{
+  background:var(--card);border:1px solid var(--rule);border-radius:3px;
+  padding:20px;display:flex;flex-direction:column;align-items:center;gap:14px;
+}
+#qr{width:260px;height:260px;display:flex;align-items:center;justify-content:center}
+#qr img,#qr canvas{display:block;width:100%;height:100%;image-rendering:pixelated}
+.url{
+  font-family:var(--mono);font-size:11.5px;line-height:1.5;color:var(--ink-2);
+  word-break:break-all;text-align:center;
+}
+label{
+  font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--ink-2);display:block;margin-bottom:6px;
+}
+input{
+  width:100%;font-family:var(--mono);font-size:12.5px;padding:10px;
+  border:1px solid var(--rule);border-radius:2px;background:var(--card);color:var(--ink);
+}
+input:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
+p{margin:0;font-size:12.5px;line-height:1.6;color:var(--ink-2)}
+p b{color:var(--ink)}
+.err{color:#8F4413;font-family:var(--mono);font-size:12px;line-height:1.5}
+</style>
+</head>
+<body>
+<main>
+  <h1>On-screen ChArUco target &mdash; page link</h1>
+
+  <div class="card">
+    <div id="qr"></div>
+    <div class="url" id="urlout"></div>
+  </div>
+
+  <div>
+    <label for="u">Page URL</label>
+    <input id="u" type="url" spellcheck="false"
+           value="https://jacobph622.github.io/smilescanner-web/">
+  </div>
+
+  <p>
+    Everything happens in this page &mdash; the URL is encoded locally and is never
+    sent anywhere. Open this file on a desktop and scan the code with each phone
+    you want to test.
+  </p>
+  <p>
+    This URL is public static hosting &mdash; <b>no sign-in</b>, so any phone that
+    scans the code opens the target. Change the URL above and the code updates.
+  </p>
+  <div class="err" id="err" hidden></div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+(function () {
+  var box = document.getElementById("qr");
+  var out = document.getElementById("urlout");
+  var input = document.getElementById("u");
+  var err = document.getElementById("err");
+
+  if (typeof QRCode === "undefined") {
+    err.hidden = false;
+    err.textContent = "The QR library could not load, so no code can be drawn. " +
+      "Check this machine's network access to cdnjs.cloudflare.com, or use Chrome's " +
+      "own address-bar menu on the target page: Create QR Code for this page.";
+    return;
+  }
+
+  function render() {
+    var url = input.value.trim();
+    box.innerHTML = "";
+    out.textContent = url || "(no URL)";
+    if (!url) return;
+    // correctLevel M keeps the code readable at a distance without inflating it.
+    new QRCode(box, {
+      text: url,
+      width: 260,
+      height: 260,
+      colorDark: "#000000",
+      colorLight: "#FFFFFF",
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  }
+
+  input.addEventListener("input", render);
+  render();
+})();
+</script>
+</body>
+</html>
