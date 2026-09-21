@@ -40,41 +40,56 @@ Physical width comes from panel pixels ÷ panel ppi, both fixed published specs.
 The device tables therefore store **panel pixels and ppi** and derive
 millimetres — never a hardcoded px/mm.
 
-## How the device is identified
+## Why you pick the model instead of it being sniffed
 
-| platform | method | confidence |
-|---|---|---|
-| iOS / iPadOS | `screen` dimensions + `devicePixelRatio` signature | exact for catalogued signatures |
-| Android | model string from UA client hints, matched against a device table | exact for catalogued models |
-| anything else | `devicePixelRatio × 160` (Android sets `densityDpi` near true ppi) | estimate, may drift several percent |
+On first load the page asks which device it is running on, from a list of 102
+panel geometries, and remembers the answer. Later visits go straight to the
+board. **Change model** in the console revises it.
 
-The page never hides which path it took. A badge is always on screen — `SCALE OK
-460 PPI`, `CONFIRM MODEL`, or an amber `ESTIMATED SCALE` — and the console shows
-the ppi, the device, the detection method, and the screen diagonal that scale
-implies, as a sanity check against the spec sheet.
+Auto-detection cannot be made reliable, and the failure is silent. iOS
+**Display Zoom** set to *Larger Text* changes the logical screen size a device
+reports, so an iPhone 15 Pro Max reports `375×812@3` — byte for byte the same
+signature as an iPhone X. Believing that signature applies a 62.4 mm panel
+width instead of the true 71.2 mm:
 
-Where a signature is genuinely ambiguous the page asks rather than guessing.
-`375×812@3` is shared by the iPhone X / XS / 11 Pro (458 ppi) and the iPhone
-12 mini / 13 mini (476 ppi) — an 8% split no web API can resolve — so it offers
-a one-tap choice and remembers it.
+```
+iPhone 15 Pro Max, Display Zoom = Larger Text
+  signature match (iPhone X panel) : 18.031 px/mm   458 ppi
+  model picked     (real panel)    : 15.794 px/mm   401 ppi
+  error                            : +14.2%
+  a 5.00 mm square really measures : 5.71 mm
+```
+
+No web API separates those two devices, so no amount of sniffing fixes it. One
+question at startup does.
+
+Given the model, the formula above stays correct *even under Display Zoom*,
+because in that mode the render pixels genuinely are physically larger. The
+scale is always the measured render buffer against the picked panel's real
+width, never a stored px/mm.
+
+Detection is still used — to preselect the dropdown, via iOS screen signature
+or the Android UA-client-hints model string. It is a starting guess, not the
+answer. The page never hides which path it took: a badge is always on screen
+(`460 PPI · SET`, `460 PPI · AUTO`, `CONFIRM MODEL`, `SET MODEL`) and the
+console shows the ppi, the device, how it was decided, and the screen diagonal
+that scale implies — a free sanity check against the spec sheet.
 
 ### If a phone measures wrong
 
-1. Turn on **Verify overlay** and hold a bank card or steel rule against the
+1. Check the badge. If it does not say `SET`, the model was guessed.
+2. Turn on **Verify overlay** and hold a bank card or steel rule against the
    glass. The outline is an ISO/IEC 7810 ID-1 card, 85.60 × 53.98 mm, with a
    50 mm rule marked in 1 mm ticks.
-2. Type the true panel ppi into **Override ppi**. It is saved per device.
-3. Better: add a row to `ANDROID_DB` or `IOS_SIGS` in `index.html` and send a PR.
-
-Two known limits: an unrecognised Android model falls back to the estimate, and
-iOS **Display Zoom** set to *Larger Text* changes the reported screen size, so
-leave it on *Default*.
+3. Pick **Not listed — enter panel ppi** and type the true density, or add a row
+   to `DEVICES` in `index.html` and send a PR. A row needs only panel pixels and
+   ppi; the millimetres are derived.
 
 ## Using it
 
-Open the page, set screen brightness to maximum by hand (there is no web
-brightness API), and tap the board to show or hide the console. It auto-hides
-after four seconds.
+Pick your device the first time, set screen brightness to maximum by hand
+(there is no web brightness API), then tap the board -- or the scale badge in
+the corner -- to show or hide the console. It auto-hides after four seconds.
 
 | control | range |
 |---|---|

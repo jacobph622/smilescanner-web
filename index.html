@@ -20,11 +20,20 @@
   --card:#FFFFFF;
   --rule:#C3CDD1;
   --accent:#0B6E5F;
+  --accent-2:#08564A;
   --warn:#8F4413;
   --warn-soft:#FAEEE3;
   --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
 }
+/*
+  Must come before any class rule that sets `display`. A bare `[hidden]` loses
+  to `.rows{display:grid}` or `.ppi{display:flex}`, which silently leaks the
+  marker-ratio row and the manual-ppi field into view. #console overrides this
+  again below, deliberately, so it can slide out rather than vanish.
+*/
+[hidden]{display:none!important}
+
 html,body{height:100%}
 body{
   margin:0;background:#FFFFFF;color:var(--ink);
@@ -34,22 +43,30 @@ body{
   -webkit-tap-highlight-color:transparent;
   -webkit-text-size-adjust:100%;
 }
-#stage{position:relative;height:100%;width:100%;background:#FFFFFF}
+#stage{position:relative;height:100%;width:100%;background:#FFFFFF;cursor:pointer}
 #board{display:block;background:#FFFFFF}
 
-/* ---- confidence badge: always visible, because trust in the scale is the whole point ---- */
+/*
+  The scale badge doubles as the console opener. Tap-to-toggle alone is not good
+  enough: on iOS a click on a canvas does not reliably reach a plain <div>
+  ancestor, which left the controls unreachable. A real always-visible button
+  cannot fail that way.
+*/
 #badge{
   position:absolute;top:env(safe-area-inset-top,0px);right:0;
-  margin:8px;padding:5px 9px;border-radius:2px;
-  font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.06em;
+  margin:8px;padding:7px 10px;border:0;border-radius:2px;
+  font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.06em;
   text-transform:uppercase;
   background:var(--accent);color:#FFFFFF;
   box-shadow:0 1px 3px rgba(14,19,23,.22);
-  z-index:3;pointer-events:none;
+  z-index:6;cursor:pointer;
   font-variant-numeric:tabular-nums;
+  max-width:70vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  min-height:32px;
 }
 #badge.est{background:var(--warn)}
 #badge.amb{background:#6B5B16}
+#badge:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 /* ---- console ---- */
 #console{
@@ -58,8 +75,8 @@ body{
   border-top:1px solid var(--rule);
   padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));
   display:flex;flex-direction:column;gap:10px;
-  max-height:74%;overflow-y:auto;overscroll-behavior:contain;
-  touch-action:pan-y;
+  max-height:80%;overflow-y:auto;overscroll-behavior:contain;
+  touch-action:pan-y;cursor:auto;
   transform:translateY(0);transition:transform .22s ease,opacity .22s ease;
   box-shadow:0 -2px 14px rgba(14,19,23,.10);
 }
@@ -69,8 +86,8 @@ body{
 .seg{display:flex;border:1px solid var(--rule);border-radius:3px;overflow:hidden;background:var(--card)}
 .seg button{
   flex:1;appearance:none;border:0;background:var(--card);color:var(--ink-2);
-  font-family:var(--sans);font-size:13px;font-weight:500;
-  padding:9px 8px;min-height:38px;cursor:pointer;
+  font-family:var(--sans);font-size:14px;font-weight:500;
+  padding:11px 8px;min-height:44px;cursor:pointer;
 }
 .seg button + button{border-left:1px solid var(--rule)}
 .seg button[aria-pressed="true"]{background:var(--accent);color:#FFFFFF}
@@ -86,7 +103,7 @@ body{
   color:var(--ink);font-variant-numeric:tabular-nums;
 }
 input[type=range]{
-  width:100%;margin:0;height:34px;accent-color:var(--accent);
+  width:100%;margin:0;height:38px;accent-color:var(--accent);
   background:transparent;cursor:pointer;
 }
 input[type=range]:disabled{accent-color:var(--rule);cursor:default}
@@ -104,8 +121,8 @@ input[type=range]:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 .scalebox{
   background:var(--card);border:1px solid var(--rule);border-left:3px solid var(--accent);
-  border-radius:2px;padding:8px 10px;
-  display:flex;flex-direction:column;gap:6px;
+  border-radius:2px;padding:9px 10px;
+  display:flex;flex-direction:column;gap:7px;
 }
 .scalebox.est{border-left-color:var(--warn);background:var(--warn-soft)}
 .scalebox.amb{border-left-color:#6B5B16}
@@ -121,52 +138,76 @@ input[type=range]:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 }
 .note{font-family:var(--sans);font-size:11.5px;line-height:1.5;color:var(--warn)}
 
-.alts{display:flex;flex-wrap:wrap;gap:6px}
-.alts button,.mini{
-  appearance:none;font-family:var(--mono);font-size:11px;font-weight:500;
-  padding:6px 9px;min-height:32px;border:1px solid var(--rule);border-radius:2px;
+.btnrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.mini{
+  appearance:none;font-family:var(--mono);font-size:11.5px;font-weight:500;
+  padding:9px 11px;min-height:38px;border:1px solid var(--rule);border-radius:2px;
   background:var(--card);color:var(--ink-2);cursor:pointer;
 }
-.alts button[aria-pressed="true"],.mini[aria-pressed="true"]{
-  background:var(--accent);color:#FFFFFF;border-color:var(--accent);
-}
-.alts button:focus-visible,.mini:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+.mini.primary{background:var(--accent);color:#FFFFFF;border-color:var(--accent)}
+.mini[aria-pressed="true"]{background:var(--accent);color:#FFFFFF;border-color:var(--accent)}
+.mini:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
 
-.ppi{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.ppi label{
-  font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase;
-  color:var(--ink-2);font-weight:500;
+/* ---- first-run device picker ---- */
+#setup{
+  position:absolute;inset:0;z-index:8;background:var(--panel);
+  display:flex;align-items:flex-start;justify-content:center;
+  overflow-y:auto;cursor:auto;
+  padding:calc(20px + env(safe-area-inset-top,0px)) 16px calc(20px + env(safe-area-inset-bottom,0px));
 }
-.ppi input[type=number]{
-  font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;
-  width:5.5em;padding:7px 8px;min-height:34px;
+#setup[hidden]{display:none!important}
+.setup-card{
+  width:100%;max-width:400px;background:var(--card);
+  border:1px solid var(--rule);border-radius:3px;padding:18px;
+  display:flex;flex-direction:column;gap:13px;
+}
+.setup-card h1{
+  margin:0;font-family:var(--mono);font-size:12px;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);
+}
+.setup-card p{margin:0;font-size:13px;line-height:1.55;color:var(--ink-2)}
+.setup-card p b{color:var(--ink)}
+.setup-card .fine{font-size:11.5px;line-height:1.5;color:var(--ink-3)}
+.setup-card label{
+  font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--ink-2);display:block;margin-bottom:6px;
+}
+select{
+  width:100%;font-family:var(--sans);font-size:15px;padding:11px 10px;min-height:46px;
   border:1px solid var(--rule);border-radius:2px;background:var(--card);color:var(--ink);
 }
-.ppi input[type=number]:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
+select:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
+.go{
+  appearance:none;border:0;border-radius:2px;background:var(--accent);color:#FFFFFF;
+  font-family:var(--sans);font-size:15px;font-weight:600;
+  padding:13px;min-height:48px;cursor:pointer;width:100%;
+}
+.go:active{background:var(--accent-2)}
+.go:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.ppi{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ppi label{margin:0}
+input[type=number]{
+  font-family:var(--mono);font-size:14px;font-variant-numeric:tabular-nums;
+  width:6em;padding:10px;min-height:42px;
+  border:1px solid var(--rule);border-radius:2px;background:var(--card);color:var(--ink);
+}
+input[type=number]:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
 
 #zoomwarn{
   position:absolute;left:0;right:0;top:env(safe-area-inset-top,0px);z-index:5;
-  margin:8px;padding:9px 11px;border-radius:2px;
+  margin:8px 96px 8px 8px;padding:9px 11px;border-radius:2px;
   background:var(--warn);color:#FFFFFF;
   font-family:var(--sans);font-size:12px;line-height:1.45;
   box-shadow:0 2px 8px rgba(14,19,23,.28);
-}
-#hint{
-  position:absolute;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));
-  transform:translateX(-50%);z-index:2;
-  padding:7px 12px;border-radius:2px;background:rgba(14,19,23,.82);color:#FFFFFF;
-  font-family:var(--mono);font-size:11px;letter-spacing:.03em;white-space:nowrap;
-  transition:opacity .4s ease;
 }
 </style>
 
 <div id="stage">
   <canvas id="board"></canvas>
-  <div id="badge">&hellip;</div>
+  <button id="badge" type="button" aria-label="Show controls">&hellip;</button>
   <div id="zoomwarn" hidden></div>
-  <div id="hint" hidden>tap to show controls</div>
 
-  <div id="console">
+  <div id="console" hidden>
     <div class="seg" role="group" aria-label="Target type">
       <button id="btn-checker" type="button" aria-pressed="true">Checkerboard</button>
       <button id="btn-charuco" type="button" aria-pressed="false">ChArUco</button>
@@ -200,16 +241,40 @@ input[type=range]:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
       <div class="scale-hd"><span>Physical scale</span><span class="scale-val" id="scale-val"></span></div>
       <div class="scale-src" id="scale-src"></div>
       <div class="note" id="scale-note" hidden></div>
-      <div class="alts" id="alts" hidden></div>
-      <div class="ppi">
-        <label for="ppi">Override ppi</label>
-        <input id="ppi" type="number" min="60" max="900" step="1" inputmode="decimal" placeholder="auto">
-        <button class="mini" id="ppi-auto" type="button">Auto</button>
+      <div class="btnrow">
+        <button class="mini primary" id="change-dev" type="button">Change model</button>
         <button class="mini" id="verify" type="button" aria-pressed="false">Verify overlay</button>
       </div>
     </div>
 
     <div class="readout" id="tips"></div>
+  </div>
+
+  <div id="setup" hidden>
+    <div class="setup-card">
+      <h1>Which device is this?</h1>
+      <p>
+        No browser reports a screen's true physical density, so the target needs
+        to be told which panel it is drawing on. Pick the model and every
+        dimension below is exact.
+      </p>
+      <div>
+        <label for="dev">Device model</label>
+        <select id="dev"></select>
+      </div>
+      <div class="ppi" id="setup-ppi" hidden>
+        <label for="ppi">Panel ppi</label>
+        <input id="ppi" type="number" min="60" max="900" step="1" inputmode="decimal" placeholder="e.g. 460">
+      </div>
+      <button class="go" id="setup-go" type="button">Show target</button>
+      <p class="fine" id="setup-detected"></p>
+      <p class="fine">
+        On iPhone and iPad, leave <b>Settings &rarr; Display &amp; Brightness
+        &rarr; Display Zoom</b> on <b>Default</b>. Picking the model handles
+        Larger Text correctly, but changing the setting later changes the scale,
+        so reload if you do.
+      </p>
+    </div>
   </div>
 </div>
 
@@ -277,7 +342,7 @@ function clampInt(v, lo, hi) { return Math.min(Math.max(v, lo), hi); }
 
    The web has no equivalent of Android's displayMetrics.xdpi - no API reports
    true panel density, and CSS mm/in are pinned to the fiction that 1in = 96 CSS
-   px. So the scale is derived from the device's known physical screen width:
+   px. So the scale is derived from the device's physical screen width:
 
        pxPerMm = (screen.width_css * devicePixelRatio) / physicalScreenWidthMm
 
@@ -291,158 +356,150 @@ function clampInt(v, lo, hi) { return Math.min(Math.max(v, lo), hi); }
 
    Physical width comes from panel pixels / panel ppi, both fixed published
    specs. Storing ppi (integer, +/-0.1%) beats storing the rounded diagonal
-   (+/-0.5%), so that is what the tables below hold.
+   (+/-0.5%), so that is what the table holds.
+
+   WHY THE MODEL IS PICKED, NOT SNIFFED
+   ------------------------------------
+   Auto-detection cannot be made reliable on iOS. Display Zoom set to "Larger
+   Text" changes the logical screen size a device reports, so an iPhone 15 Pro
+   Max reports 375x812@3 - the same signature as an iPhone X. Trusting that
+   signature applies a 62.4 mm panel width instead of the true 71.2 mm: 14%
+   small, with a 5.00 mm square really measuring 5.71 mm. No web API
+   distinguishes the two, so the model is asked for once and remembered.
+   Given the model, the formula above is still correct under Display Zoom,
+   because in that mode the render pixels really are physically larger.
    =========================================================================== */
 
-/* iOS/iPadOS: (css short x css long @ dpr) is a near-unique signature.
-   p = panel pixels, ppi = panel density, n = the models sharing it.  */
-var IOS_SIGS = {
-  "320x480@1":   { p:[320,480],    ppi:163, n:"iPhone / 3G / 3GS" },
-  "320x480@2":   { p:[640,960],    ppi:326, n:"iPhone 4 / 4s" },
-  "320x568@2":   { p:[640,1136],   ppi:326, n:"iPhone 5 / 5c / 5s / SE (1st gen)" },
-  "375x667@2":   { p:[750,1334],   ppi:326, n:"iPhone 6 / 6s / 7 / 8 / SE (2nd-3rd gen)" },
-  "414x736@3":   { p:[1080,1920],  ppi:401, n:"iPhone 6 / 6s / 7 / 8 Plus",
-                   note:"Renders 1242x2208 and downsamples to the 1080x1920 panel. The scale accounts for it." },
-  "414x896@2":   { p:[828,1792],   ppi:326, n:"iPhone XR / 11" },
-  "414x896@3":   { p:[1242,2688],  ppi:458, n:"iPhone XS Max / 11 Pro Max" },
-  "375x812@3":   { p:[1125,2436],  ppi:458, n:"iPhone X / XS / 11 Pro",
-                   alts:[{ p:[1080,2340], ppi:476, n:"iPhone 12 mini / 13 mini" }] },
-  "390x844@3":   { p:[1170,2532],  ppi:460, n:"iPhone 12 / 13 / 14 / 16e" },
-  "428x926@3":   { p:[1284,2778],  ppi:458, n:"iPhone 12 / 13 Pro Max / 14 Plus" },
-  "393x852@3":   { p:[1179,2556],  ppi:460, n:"iPhone 14 Pro / 15 / 15 Pro / 16" },
-  "430x932@3":   { p:[1290,2796],  ppi:460, n:"iPhone 14 Pro Max / 15 Plus / 15 Pro Max / 16 Plus" },
-  "402x874@3":   { p:[1206,2622],  ppi:460, n:"iPhone 16 Pro / 17 / 17 Pro" },
-  "440x956@3":   { p:[1320,2868],  ppi:460, n:"iPhone 16 Pro Max / 17 Pro Max" },
-  "420x912@3":   { p:[1260,2736],  ppi:460, n:"iPhone Air" },
-  "744x1133@2":  { p:[1488,2266],  ppi:326, n:"iPad mini (6th-7th gen)" },
-  "768x1024@1":  { p:[768,1024],   ppi:132, n:"iPad / iPad 2" },
-  "768x1024@2":  { p:[1536,2048],  ppi:264, n:"iPad (3rd-6th) / Air / Air 2 / Pro 9.7-inch",
-                   alts:[{ p:[1536,2048], ppi:326, n:"iPad mini 2-5 (7.9-inch)" }] },
-  "810x1080@2":  { p:[1620,2160],  ppi:264, n:"iPad (7th-9th gen)" },
-  "820x1180@2":  { p:[1640,2360],  ppi:264, n:"iPad (10th-11th) / iPad Air 11-inch" },
-  "834x1112@2":  { p:[1668,2224],  ppi:264, n:"iPad Pro 10.5-inch" },
-  "834x1194@2":  { p:[1668,2388],  ppi:264, n:"iPad Pro 11-inch (1st-6th gen)" },
-  "834x1210@2":  { p:[1668,2420],  ppi:264, n:"iPad Pro 11-inch (7th gen and later)" },
-  "1024x1366@2": { p:[2048,2732],  ppi:264, n:"iPad Pro 12.9-inch / iPad Air 13-inch" },
-  "1032x1376@2": { p:[2064,2752],  ppi:264, n:"iPad Pro 13-inch" }
-};
+/*
+  One row per distinct panel geometry.
+    id   stable key stored in localStorage
+    g    dropdown group
+    n    label (models sharing an identical panel are listed together)
+    p    panel pixels [w, h]
+    ppi  panel density
+    sig  iOS screen signature "shortCss x longCss @ dpr", for the initial guess
+    m    Android model-string keys from UA client hints, for the initial guess
+*/
+var DEVICES = [
+  { id:"i4",     g:"iPhone", n:"iPhone 4 / 4s",                                p:[640,960],   ppi:326, sig:"320x480@2" },
+  { id:"i5",     g:"iPhone", n:"iPhone 5 / 5c / 5s / SE (1st gen)",            p:[640,1136],  ppi:326, sig:"320x568@2" },
+  { id:"i6",     g:"iPhone", n:"iPhone 6 / 6s / 7 / 8 / SE (2nd-3rd gen)",     p:[750,1334],  ppi:326, sig:"375x667@2" },
+  { id:"i6p",    g:"iPhone", n:"iPhone 6 / 6s / 7 / 8 Plus",                   p:[1080,1920], ppi:401, sig:"414x736@3",
+                 note:"Renders 1242x2208 and downsamples to the 1080x1920 panel. The scale accounts for it." },
+  { id:"ix",     g:"iPhone", n:"iPhone X / XS / 11 Pro",                       p:[1125,2436], ppi:458, sig:"375x812@3" },
+  { id:"imini",  g:"iPhone", n:"iPhone 12 mini / 13 mini",                     p:[1080,2340], ppi:476, sig:"375x812@3",
+                 note:"Renders 1125x2436 and downsamples to the 1080x2340 panel. The scale accounts for it." },
+  { id:"ixr",    g:"iPhone", n:"iPhone XR / 11",                               p:[828,1792],  ppi:326, sig:"414x896@2" },
+  { id:"ixsmax", g:"iPhone", n:"iPhone XS Max / 11 Pro Max",                   p:[1242,2688], ppi:458, sig:"414x896@3" },
+  { id:"i12",    g:"iPhone", n:"iPhone 12 / 12 Pro / 13 / 13 Pro / 14 / 16e",  p:[1170,2532], ppi:460, sig:"390x844@3" },
+  { id:"i12pm",  g:"iPhone", n:"iPhone 12 / 13 Pro Max / 14 Plus",             p:[1284,2778], ppi:458, sig:"428x926@3" },
+  { id:"i15",    g:"iPhone", n:"iPhone 14 Pro / 15 / 15 Pro / 16",             p:[1179,2556], ppi:460, sig:"393x852@3" },
+  { id:"i15pm",  g:"iPhone", n:"iPhone 14 Pro Max / 15 Plus / 15 Pro Max / 16 Plus", p:[1290,2796], ppi:460, sig:"430x932@3" },
+  { id:"i16pro", g:"iPhone", n:"iPhone 16 Pro / 17 / 17 Pro / 18 Pro",         p:[1206,2622], ppi:460, sig:"402x874@3" },
+  { id:"i16pm",  g:"iPhone", n:"iPhone 16 Pro Max / 17 Pro Max / 18 Pro Max",  p:[1320,2868], ppi:460, sig:"440x956@3" },
+  { id:"iair",   g:"iPhone", n:"iPhone Air",                                   p:[1260,2736], ppi:460, sig:"420x912@3" },
 
-/* Android: keyed on the model string from UA client hints. Samsung reports SM-
-   codes with a region suffix, so those match by prefix. Entries with two
-   screens (folds) are disambiguated by the reported aspect ratio.
-   [ matchKeys, display name, [ [panelW, panelH, ppi, screenLabel], ... ] ]  */
-var ANDROID_DB = [
-  [["pixel 3"],        "Pixel 3",        [[1080,2160,443]]],
-  [["pixel 3 xl"],     "Pixel 3 XL",     [[1440,2960,523]]],
-  [["pixel 3a"],       "Pixel 3a",       [[1080,2220,441]]],
-  [["pixel 3a xl"],    "Pixel 3a XL",    [[1080,2160,400]]],
-  [["pixel 4"],        "Pixel 4",        [[1080,2280,444]]],
-  [["pixel 4 xl"],     "Pixel 4 XL",     [[1440,3040,537]]],
-  [["pixel 4a"],       "Pixel 4a",       [[1080,2340,443]]],
-  [["pixel 5"],        "Pixel 5",        [[1080,2340,432]]],
-  [["pixel 5a"],       "Pixel 5a",       [[1080,2400,413]]],
-  [["pixel 6"],        "Pixel 6",        [[1080,2400,411]]],
-  [["pixel 6 pro"],    "Pixel 6 Pro",    [[1440,3120,512]]],
-  [["pixel 6a"],       "Pixel 6a",       [[1080,2400,429]]],
-  [["pixel 7"],        "Pixel 7",        [[1080,2400,416]]],
-  [["pixel 7 pro"],    "Pixel 7 Pro",    [[1440,3120,512]]],
-  [["pixel 7a"],       "Pixel 7a",       [[1080,2400,431]]],
-  [["pixel 8"],        "Pixel 8",        [[1080,2400,428]]],
-  [["pixel 8 pro"],    "Pixel 8 Pro",    [[1344,2992,489]]],
-  [["pixel 8a"],       "Pixel 8a",       [[1080,2400,430]]],
-  [["pixel 9"],        "Pixel 9",        [[1080,2424,422]]],
-  [["pixel 9 pro"],    "Pixel 9 Pro",    [[1280,2856,495]]],
-  [["pixel 9 pro xl"], "Pixel 9 Pro XL", [[1344,2992,486]]],
-  [["pixel 9a"],       "Pixel 9a",       [[1080,2424,422]]],
-  [["pixel 10"],       "Pixel 10",       [[1080,2424,422]]],
-  [["pixel 10 pro"],   "Pixel 10 Pro",   [[1280,2856,495]]],
-  [["pixel 10 pro xl"],"Pixel 10 Pro XL",[[1344,2992,486]]],
+  { id:"ipad1",  g:"iPad", n:"iPad / iPad 2",                                  p:[768,1024],  ppi:132, sig:"768x1024@1" },
+  { id:"ipad3",  g:"iPad", n:"iPad (3rd-6th gen) / Air / Air 2 / Pro 9.7-inch",p:[1536,2048], ppi:264, sig:"768x1024@2" },
+  { id:"ipadm2", g:"iPad", n:"iPad mini 2-5 (7.9-inch)",                       p:[1536,2048], ppi:326, sig:"768x1024@2" },
+  { id:"ipad7",  g:"iPad", n:"iPad (7th-9th gen)",                             p:[1620,2160], ppi:264, sig:"810x1080@2" },
+  { id:"ipad10", g:"iPad", n:"iPad (10th-11th gen) / iPad Air 11-inch",        p:[1640,2360], ppi:264, sig:"820x1180@2" },
+  { id:"ipadp105",g:"iPad", n:"iPad Pro 10.5-inch",                            p:[1668,2224], ppi:264, sig:"834x1112@2" },
+  { id:"ipadp11",g:"iPad", n:"iPad Pro 11-inch (1st-6th gen)",                 p:[1668,2388], ppi:264, sig:"834x1194@2" },
+  { id:"ipadp11b",g:"iPad",n:"iPad Pro 11-inch (7th gen and later)",           p:[1668,2420], ppi:264, sig:"834x1210@2" },
+  { id:"ipadp129",g:"iPad", n:"iPad Pro 12.9-inch / iPad Air 13-inch",         p:[2048,2732], ppi:264, sig:"1024x1366@2" },
+  { id:"ipadp13",g:"iPad", n:"iPad Pro 13-inch",                               p:[2064,2752], ppi:264, sig:"1032x1376@2" },
+  { id:"ipadm6", g:"iPad", n:"iPad mini (6th-7th gen)",                        p:[1488,2266], ppi:326, sig:"744x1133@2" },
 
-  [["sm-g970"], "Galaxy S10e",      [[1080,2280,438]]],
-  [["sm-g973"], "Galaxy S10",       [[1440,3040,550]]],
-  [["sm-g975"], "Galaxy S10+",      [[1440,3040,522]]],
-  [["sm-g980","sm-g981"], "Galaxy S20",  [[1440,3200,563]]],
-  [["sm-g985","sm-g986"], "Galaxy S20+", [[1440,3200,525]]],
-  [["sm-g988"], "Galaxy S20 Ultra", [[1440,3200,511]]],
-  [["sm-g991"], "Galaxy S21",       [[1080,2400,421]]],
-  [["sm-g996"], "Galaxy S21+",      [[1080,2400,394]]],
-  [["sm-g998"], "Galaxy S21 Ultra", [[1440,3200,515]]],
-  [["sm-s901"], "Galaxy S22",       [[1080,2340,425]]],
-  [["sm-s906"], "Galaxy S22+",      [[1080,2340,393]]],
-  [["sm-s908"], "Galaxy S22 Ultra", [[1440,3088,500]]],
-  [["sm-s911"], "Galaxy S23",       [[1080,2340,425]]],
-  [["sm-s916"], "Galaxy S23+",      [[1080,2340,393]]],
-  [["sm-s918"], "Galaxy S23 Ultra", [[1440,3088,500]]],
-  [["sm-s711"], "Galaxy S23 FE",    [[1080,2340,403]]],
-  [["sm-s921"], "Galaxy S24",       [[1080,2340,416]]],
-  [["sm-s926"], "Galaxy S24+",      [[1440,3120,513]]],
-  [["sm-s928"], "Galaxy S24 Ultra", [[1440,3120,505]]],
-  [["sm-s931"], "Galaxy S25",       [[1080,2340,416]]],
-  [["sm-s936"], "Galaxy S25+",      [[1440,3120,513]]],
-  [["sm-s938"], "Galaxy S25 Ultra", [[1440,3120,501]]],
-  [["sm-n970"], "Galaxy Note10",    [[1080,2280,401]]],
-  [["sm-n975"], "Galaxy Note10+",   [[1440,3040,498]]],
-  [["sm-n980","sm-n981"], "Galaxy Note20",       [[1080,2400,393]]],
-  [["sm-n985","sm-n986"], "Galaxy Note20 Ultra", [[1440,3088,496]]],
-  [["sm-a525","sm-a526"], "Galaxy A52", [[1080,2400,407]]],
-  [["sm-a536"], "Galaxy A53",       [[1080,2400,407]]],
-  [["sm-a546"], "Galaxy A54",       [[1080,2340,403]]],
+  { id:"px3",    g:"Google Pixel", n:"Pixel 3",         p:[1080,2160], ppi:443, m:["pixel 3"] },
+  { id:"px3xl",  g:"Google Pixel", n:"Pixel 3 XL",      p:[1440,2960], ppi:523, m:["pixel 3 xl"] },
+  { id:"px3a",   g:"Google Pixel", n:"Pixel 3a",        p:[1080,2220], ppi:441, m:["pixel 3a"] },
+  { id:"px3axl", g:"Google Pixel", n:"Pixel 3a XL",     p:[1080,2160], ppi:400, m:["pixel 3a xl"] },
+  { id:"px4",    g:"Google Pixel", n:"Pixel 4",         p:[1080,2280], ppi:444, m:["pixel 4"] },
+  { id:"px4xl",  g:"Google Pixel", n:"Pixel 4 XL",      p:[1440,3040], ppi:537, m:["pixel 4 xl"] },
+  { id:"px4a",   g:"Google Pixel", n:"Pixel 4a",        p:[1080,2340], ppi:443, m:["pixel 4a"] },
+  { id:"px5",    g:"Google Pixel", n:"Pixel 5",         p:[1080,2340], ppi:432, m:["pixel 5"] },
+  { id:"px5a",   g:"Google Pixel", n:"Pixel 5a",        p:[1080,2400], ppi:413, m:["pixel 5a"] },
+  { id:"px6",    g:"Google Pixel", n:"Pixel 6",         p:[1080,2400], ppi:411, m:["pixel 6"] },
+  { id:"px6pro", g:"Google Pixel", n:"Pixel 6 Pro",     p:[1440,3120], ppi:512, m:["pixel 6 pro"] },
+  { id:"px6a",   g:"Google Pixel", n:"Pixel 6a",        p:[1080,2400], ppi:429, m:["pixel 6a"] },
+  { id:"px7",    g:"Google Pixel", n:"Pixel 7",         p:[1080,2400], ppi:416, m:["pixel 7"] },
+  { id:"px7pro", g:"Google Pixel", n:"Pixel 7 Pro",     p:[1440,3120], ppi:512, m:["pixel 7 pro"] },
+  { id:"px7a",   g:"Google Pixel", n:"Pixel 7a",        p:[1080,2400], ppi:431, m:["pixel 7a"] },
+  { id:"px8",    g:"Google Pixel", n:"Pixel 8",         p:[1080,2400], ppi:428, m:["pixel 8"] },
+  { id:"px8pro", g:"Google Pixel", n:"Pixel 8 Pro",     p:[1344,2992], ppi:489, m:["pixel 8 pro"] },
+  { id:"px8a",   g:"Google Pixel", n:"Pixel 8a",        p:[1080,2400], ppi:430, m:["pixel 8a"] },
+  { id:"px9",    g:"Google Pixel", n:"Pixel 9",         p:[1080,2424], ppi:422, m:["pixel 9"] },
+  { id:"px9pro", g:"Google Pixel", n:"Pixel 9 Pro",     p:[1280,2856], ppi:495, m:["pixel 9 pro"] },
+  { id:"px9pxl", g:"Google Pixel", n:"Pixel 9 Pro XL",  p:[1344,2992], ppi:486, m:["pixel 9 pro xl"] },
+  { id:"px9a",   g:"Google Pixel", n:"Pixel 9a",        p:[1080,2424], ppi:422, m:["pixel 9a"] },
+  { id:"px10",   g:"Google Pixel", n:"Pixel 10",        p:[1080,2424], ppi:422, m:["pixel 10"] },
+  { id:"px10pro",g:"Google Pixel", n:"Pixel 10 Pro",    p:[1280,2856], ppi:495, m:["pixel 10 pro"] },
+  { id:"px10pxl",g:"Google Pixel", n:"Pixel 10 Pro XL", p:[1344,2992], ppi:486, m:["pixel 10 pro xl"] },
 
-  [["sm-f900"], "Galaxy Fold",      [[1536,2152,362,"inner"],[720,1680,399,"cover"]]],
-  [["sm-f916"], "Galaxy Z Fold2",   [[1768,2208,373,"inner"],[816,2260,386,"cover"]]],
-  [["sm-f926"], "Galaxy Z Fold3",   [[1768,2208,374,"inner"],[832,2268,387,"cover"]]],
-  [["sm-f936"], "Galaxy Z Fold4",   [[1812,2176,373,"inner"],[904,2316,401,"cover"]]],
-  [["sm-f946"], "Galaxy Z Fold5",   [[1812,2176,374,"inner"],[904,2316,401,"cover"]]],
-  [["sm-f956"], "Galaxy Z Fold6",   [[1856,2160,374,"inner"],[968,2376,410,"cover"]]],
-  [["sm-f700"], "Galaxy Z Flip",    [[1080,2636,425,"inner"],[112,300,303,"cover"]]],
-  [["sm-f711"], "Galaxy Z Flip3",   [[1080,2640,426,"inner"],[260,512,302,"cover"]]],
-  [["sm-f721"], "Galaxy Z Flip4",   [[1080,2640,426,"inner"],[260,512,302,"cover"]]],
-  [["sm-f731"], "Galaxy Z Flip5",   [[1080,2640,426,"inner"],[720,748,306,"cover"]]],
-  [["sm-f741"], "Galaxy Z Flip6",   [[1080,2640,426,"inner"],[720,748,306,"cover"]]],
+  { id:"s10e", g:"Samsung Galaxy", n:"Galaxy S10e",      p:[1080,2280], ppi:438, m:["sm-g970"] },
+  { id:"s10",  g:"Samsung Galaxy", n:"Galaxy S10",       p:[1440,3040], ppi:550, m:["sm-g973"] },
+  { id:"s10p", g:"Samsung Galaxy", n:"Galaxy S10+",      p:[1440,3040], ppi:522, m:["sm-g975"] },
+  { id:"s20",  g:"Samsung Galaxy", n:"Galaxy S20",       p:[1440,3200], ppi:563, m:["sm-g980","sm-g981"] },
+  { id:"s20p", g:"Samsung Galaxy", n:"Galaxy S20+",      p:[1440,3200], ppi:525, m:["sm-g985","sm-g986"] },
+  { id:"s20u", g:"Samsung Galaxy", n:"Galaxy S20 Ultra", p:[1440,3200], ppi:511, m:["sm-g988"] },
+  { id:"s21",  g:"Samsung Galaxy", n:"Galaxy S21",       p:[1080,2400], ppi:421, m:["sm-g991"] },
+  { id:"s21p", g:"Samsung Galaxy", n:"Galaxy S21+",      p:[1080,2400], ppi:394, m:["sm-g996"] },
+  { id:"s21u", g:"Samsung Galaxy", n:"Galaxy S21 Ultra", p:[1440,3200], ppi:515, m:["sm-g998"] },
+  { id:"s22",  g:"Samsung Galaxy", n:"Galaxy S22",       p:[1080,2340], ppi:425, m:["sm-s901"] },
+  { id:"s22p", g:"Samsung Galaxy", n:"Galaxy S22+",      p:[1080,2340], ppi:393, m:["sm-s906"] },
+  { id:"s22u", g:"Samsung Galaxy", n:"Galaxy S22 Ultra", p:[1440,3088], ppi:500, m:["sm-s908"] },
+  { id:"s23",  g:"Samsung Galaxy", n:"Galaxy S23",       p:[1080,2340], ppi:425, m:["sm-s911"] },
+  { id:"s23p", g:"Samsung Galaxy", n:"Galaxy S23+",      p:[1080,2340], ppi:393, m:["sm-s916"] },
+  { id:"s23u", g:"Samsung Galaxy", n:"Galaxy S23 Ultra", p:[1440,3088], ppi:500, m:["sm-s918"] },
+  { id:"s23fe",g:"Samsung Galaxy", n:"Galaxy S23 FE",    p:[1080,2340], ppi:403, m:["sm-s711"] },
+  { id:"s24",  g:"Samsung Galaxy", n:"Galaxy S24",       p:[1080,2340], ppi:416, m:["sm-s921"] },
+  { id:"s24p", g:"Samsung Galaxy", n:"Galaxy S24+",      p:[1440,3120], ppi:513, m:["sm-s926"] },
+  { id:"s24u", g:"Samsung Galaxy", n:"Galaxy S24 Ultra", p:[1440,3120], ppi:505, m:["sm-s928"] },
+  { id:"s25",  g:"Samsung Galaxy", n:"Galaxy S25",       p:[1080,2340], ppi:416, m:["sm-s931"] },
+  { id:"s25p", g:"Samsung Galaxy", n:"Galaxy S25+",      p:[1440,3120], ppi:513, m:["sm-s936"] },
+  { id:"s25u", g:"Samsung Galaxy", n:"Galaxy S25 Ultra", p:[1440,3120], ppi:501, m:["sm-s938"] },
+  { id:"n10",  g:"Samsung Galaxy", n:"Galaxy Note10",    p:[1080,2280], ppi:401, m:["sm-n970"] },
+  { id:"n10p", g:"Samsung Galaxy", n:"Galaxy Note10+",   p:[1440,3040], ppi:498, m:["sm-n975"] },
+  { id:"n20",  g:"Samsung Galaxy", n:"Galaxy Note20",    p:[1080,2400], ppi:393, m:["sm-n980","sm-n981"] },
+  { id:"n20u", g:"Samsung Galaxy", n:"Galaxy Note20 Ultra", p:[1440,3088], ppi:496, m:["sm-n985","sm-n986"] },
+  { id:"a52",  g:"Samsung Galaxy", n:"Galaxy A52",       p:[1080,2400], ppi:407, m:["sm-a525","sm-a526"] },
+  { id:"a53",  g:"Samsung Galaxy", n:"Galaxy A53",       p:[1080,2400], ppi:407, m:["sm-a536"] },
+  { id:"a54",  g:"Samsung Galaxy", n:"Galaxy A54",       p:[1080,2340], ppi:403, m:["sm-a546"] },
 
-  [["oneplus 13","cph2649","cph2653","pjz110"], "OnePlus 13",    [[1440,3168,510]]],
-  [["oneplus nord","ac2003","ac2001"],          "OnePlus Nord",  [[1080,2400,409]]],
-  [["redmi note 13","2312dra50"],               "Redmi Note 13", [[1080,2400,395]]]
+  { id:"f1i", g:"Samsung foldable", n:"Galaxy Fold (inner)",    p:[1536,2152], ppi:362, m:["sm-f900"] },
+  { id:"f1c", g:"Samsung foldable", n:"Galaxy Fold (cover)",    p:[720,1680],  ppi:399, m:["sm-f900"] },
+  { id:"f2i", g:"Samsung foldable", n:"Galaxy Z Fold2 (inner)", p:[1768,2208], ppi:373, m:["sm-f916"] },
+  { id:"f2c", g:"Samsung foldable", n:"Galaxy Z Fold2 (cover)", p:[816,2260],  ppi:386, m:["sm-f916"] },
+  { id:"f3i", g:"Samsung foldable", n:"Galaxy Z Fold3 (inner)", p:[1768,2208], ppi:374, m:["sm-f926"] },
+  { id:"f3c", g:"Samsung foldable", n:"Galaxy Z Fold3 (cover)", p:[832,2268],  ppi:387, m:["sm-f926"] },
+  { id:"f4i", g:"Samsung foldable", n:"Galaxy Z Fold4 (inner)", p:[1812,2176], ppi:373, m:["sm-f936"] },
+  { id:"f4c", g:"Samsung foldable", n:"Galaxy Z Fold4 (cover)", p:[904,2316],  ppi:401, m:["sm-f936"] },
+  { id:"f5i", g:"Samsung foldable", n:"Galaxy Z Fold5 (inner)", p:[1812,2176], ppi:374, m:["sm-f946"] },
+  { id:"f5c", g:"Samsung foldable", n:"Galaxy Z Fold5 (cover)", p:[904,2316],  ppi:401, m:["sm-f946"] },
+  { id:"f6i", g:"Samsung foldable", n:"Galaxy Z Fold6 (inner)", p:[1856,2160], ppi:374, m:["sm-f956"] },
+  { id:"f6c", g:"Samsung foldable", n:"Galaxy Z Fold6 (cover)", p:[968,2376],  ppi:410, m:["sm-f956"] },
+  { id:"z1i", g:"Samsung foldable", n:"Galaxy Z Flip (inner)",  p:[1080,2636], ppi:425, m:["sm-f700"] },
+  { id:"z3i", g:"Samsung foldable", n:"Galaxy Z Flip3 (inner)", p:[1080,2640], ppi:426, m:["sm-f711"] },
+  { id:"z4i", g:"Samsung foldable", n:"Galaxy Z Flip4 (inner)", p:[1080,2640], ppi:426, m:["sm-f721"] },
+  { id:"z5i", g:"Samsung foldable", n:"Galaxy Z Flip5 (inner)", p:[1080,2640], ppi:426, m:["sm-f731"] },
+  { id:"z5c", g:"Samsung foldable", n:"Galaxy Z Flip5 (cover)", p:[720,748],   ppi:306, m:["sm-f731"] },
+  { id:"z6i", g:"Samsung foldable", n:"Galaxy Z Flip6 (inner)", p:[1080,2640], ppi:426, m:["sm-f741"] },
+  { id:"z6c", g:"Samsung foldable", n:"Galaxy Z Flip6 (cover)", p:[720,748],   ppi:306, m:["sm-f741"] },
+
+  { id:"op13",  g:"Other Android", n:"OnePlus 13",    p:[1440,3168], ppi:510, m:["oneplus 13","cph2649","cph2653","pjz110"] },
+  { id:"opn",   g:"Other Android", n:"OnePlus Nord",  p:[1080,2400], ppi:409, m:["oneplus nord","ac2003","ac2001"] },
+  { id:"rn13",  g:"Other Android", n:"Redmi Note 13", p:[1080,2400], ppi:395, m:["redmi note 13","2312dra50"] }
 ];
+
+var DEVICE_BY_ID = {};
+DEVICES.forEach(function (d) { DEVICE_BY_ID[d.id] = d; });
+
+/** Physical width of the short screen edge, in millimetres. */
+function deviceShortMm(d) { return Math.min(d.p[0], d.p[1]) / d.ppi * 25.4; }
 
 function normModel(s) {
   return String(s || "").toLowerCase().replace(DASHES, "-").replace(/\s+/g, " ").trim();
-}
-
-function findAndroid(model) {
-  var m = normModel(model), i, j, e, k, best = null;
-  if (!m) return null;
-  for (i = 0; i < ANDROID_DB.length; i++) {
-    e = ANDROID_DB[i];
-    for (j = 0; j < e[0].length; j++) if (e[0][j] === m) return e;
-  }
-  for (i = 0; i < ANDROID_DB.length; i++) {
-    e = ANDROID_DB[i];
-    for (j = 0; j < e[0].length; j++) {
-      k = e[0][j];
-      if (m.indexOf(k) === 0 && (!best || k.length > best.k.length)) best = { e: e, k: k };
-    }
-  }
-  if (best) return best.e;
-  for (i = 0; i < ANDROID_DB.length; i++) {
-    e = ANDROID_DB[i];
-    for (j = 0; j < e[0].length; j++) {
-      k = e[0][j];
-      if (m.indexOf(k) > 0 && (!best || k.length > best.k.length)) best = { e: e, k: k };
-    }
-  }
-  return best ? best.e : null;
-}
-
-/** Of several panels on one device (folds), the one whose aspect the browser reports. */
-function pickScreen(screens, shortCss, longCss) {
-  var want = longCss / shortCss, out = screens[0], bestErr = Infinity, i, a, err;
-  for (i = 0; i < screens.length; i++) {
-    a = Math.max(screens[i][0], screens[i][1]) / Math.min(screens[i][0], screens[i][1]);
-    err = Math.abs(a - want);
-    if (err < bestErr) { bestErr = err; out = screens[i]; }
-  }
-  return out;
 }
 
 var UA = navigator.userAgent || "";
@@ -451,31 +508,62 @@ var IS_IOS = /iPad|iPhone|iPod/.test(UA) ||
 var IS_ANDROID = /Android/.test(UA);
 var IS_TOUCH = (navigator.maxTouchPoints || 0) > 0 || IS_IOS || IS_ANDROID;
 
-/* Everything the readout needs to justify the number it is using. */
-var scale = {
-  pxPerMm: 0,          // in canvas backing pixels, which are real device pixels
-  confidence: "est",   // "db" | "amb" | "est" | "manual"
-  device: "",
-  method: "",
-  note: "",
-  alts: null,          // model names, when the signature is ambiguous
-  altIndex: 0,
-  renderPpi: 0
-};
+function screenShort() { return Math.min(screen.width || 0, screen.height || 0); }
+function screenLong()  { return Math.max(screen.width || 0, screen.height || 0); }
+function iosSig() {
+  var dpr = window.devicePixelRatio || 1;
+  return screenShort() + "x" + screenLong() + "@" + (Math.round(dpr * 1000) / 1000);
+}
 
-var manualPpi = null;
-try {
-  var stored = localStorage.getItem("charuco.ppi.v1");
-  if (stored) manualPpi = parseFloat(stored) || null;
-} catch (e) { /* private mode, or site data blocked */ }
+/* Best guess only - it prefills the picker, it does not decide the scale. */
+var guess = { devices: [], how: "" };
 
-var altChoice = 0;
-try {
-  var storedAlt = localStorage.getItem("charuco.alt.v1");
-  if (storedAlt) altChoice = parseInt(storedAlt, 10) || 0;
-} catch (e) { /* ignore */ }
+function androidCandidates(model) {
+  var m = normModel(model), out = [], i, j, k, best = 0;
+  if (!m) return out;
+  for (i = 0; i < DEVICES.length; i++) {
+    if (!DEVICES[i].m) continue;
+    for (j = 0; j < DEVICES[i].m.length; j++) {
+      k = DEVICES[i].m[j];
+      if (k === m || m.indexOf(k) === 0 || m.indexOf(k) > 0) {
+        if (k.length > best) { best = k.length; out = [DEVICES[i]]; }
+        else if (k.length === best) { out.push(DEVICES[i]); }
+      }
+    }
+  }
+  // Several panels on one model (a fold): keep the one matching reported aspect.
+  if (out.length > 1) {
+    var want = screenLong() / screenShort();
+    out.sort(function (a, b) {
+      var aa = Math.abs(Math.max(a.p[0], a.p[1]) / Math.min(a.p[0], a.p[1]) - want);
+      var bb = Math.abs(Math.max(b.p[0], b.p[1]) / Math.min(b.p[0], b.p[1]) - want);
+      return aa - bb;
+    });
+  }
+  return out;
+}
 
-var androidModel = null;
+function computeGuess(androidModel) {
+  if (IS_IOS) {
+    var sig = iosSig();
+    var hits = DEVICES.filter(function (d) { return d.sig === sig; });
+    guess.devices = hits;
+    guess.how = hits.length
+      ? "screen signature " + sig
+      : "screen signature " + sig + " is not in the table";
+    return;
+  }
+  if (IS_ANDROID && androidModel) {
+    var c = androidCandidates(androidModel.model);
+    guess.devices = c;
+    guess.how = c.length
+      ? "model " + androidModel.model + " via " + androidModel.src
+      : "model " + androidModel.model + " is not in the table";
+    return;
+  }
+  guess.devices = [];
+  guess.how = IS_ANDROID ? "this browser does not report a model" : "not a catalogued mobile browser";
+}
 
 function readAndroidModel() {
   var uad = navigator.userAgentData;
@@ -498,100 +586,82 @@ function readAndroidModel() {
   return Promise.resolve(legacy());
 }
 
+/* ---- stored preference ---- */
+var PREF_DEV = "charuco.device.v2", PREF_PPI = "charuco.ppi.v2";
+function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function save(k, v) {
+  try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {}
+}
+
+var choice = load(PREF_DEV);                       // device id | "auto" | "manual" | null
+var manualPpi = parseFloat(load(PREF_PPI)) || null;
+
+/* Everything the readout needs to justify the number it is using. */
+var scale = {
+  pxPerMm: 0,
+  confidence: "est",   // "picked" | "auto" | "amb" | "manual" | "est"
+  device: "",
+  method: "",
+  note: "",
+  renderPpi: 0
+};
+
 function resolveScale() {
   var dpr = window.devicePixelRatio || 1;
-  var sw = Math.min(screen.width || 0, screen.height || 0);
-  var sh = Math.max(screen.width || 0, screen.height || 0);
-  var renderShort = sw * dpr;
-
-  scale.alts = null;
+  var renderShort = screenShort() * dpr;
   scale.note = "";
 
-  // 1. A manual override wins outright. The number entered is ppi in render-pixel space.
-  if (manualPpi && manualPpi > 20) {
+  function fromDevice(d, conf, how) {
+    scale.pxPerMm = renderShort / deviceShortMm(d);
+    scale.renderPpi = scale.pxPerMm * 25.4;
+    scale.device = d.n;
+    scale.method = how;
+    scale.confidence = conf;
+    if (d.note) scale.note = d.note;
+  }
+
+  if (choice === "manual" && manualPpi && manualPpi > 20) {
     scale.pxPerMm = manualPpi / 25.4;
     scale.renderPpi = manualPpi;
+    scale.device = "not listed";
+    scale.method = "panel ppi entered by hand";
     scale.confidence = "manual";
-    scale.device = "manual entry";
-    scale.method = "ppi entered by hand";
     return;
   }
 
-  // 2. iOS / iPadOS, by screen signature.
-  if (IS_IOS && sw && sh) {
-    var key = sw + "x" + sh + "@" + (Math.round(dpr * 1000) / 1000);
-    var hit = IOS_SIGS[key];
-    if (hit) {
-      var opts = [hit].concat(hit.alts || []);
-      var pick = opts[Math.min(altChoice, opts.length - 1)];
-      var physShortMm = Math.min(pick.p[0], pick.p[1]) / pick.ppi * 25.4;
-      scale.pxPerMm = renderShort / physShortMm;
-      scale.renderPpi = scale.pxPerMm * 25.4;
-      scale.device = pick.n;
-      scale.method = "screen signature " + key;
-      scale.confidence = opts.length > 1 ? "amb" : "db";
-      if (pick.note) scale.note = pick.note;
-      if (opts.length > 1) {
-        scale.alts = opts.map(function (o) { return o.n; });
-        scale.altIndex = Math.min(altChoice, opts.length - 1);
-        scale.note = "Models with different panel densities share this screen signature and the " +
-                     "web cannot tell them apart. Pick the right one if it is wrong.";
-      }
-      return;
-    }
-    scale.pxPerMm = dpr * 160 / 25.4;
-    scale.renderPpi = scale.pxPerMm * 25.4;
-    scale.confidence = "est";
-    scale.device = "unrecognised iOS device";
-    scale.method = "estimate from devicePixelRatio";
-    scale.note = "Signature " + key + " is not in the table. If iOS Display Zoom is set to " +
-                 "Larger Text, switch it to Default - it changes the reported screen size. " +
-                 "Otherwise enter the panel ppi below.";
+  if (choice && choice !== "auto" && DEVICE_BY_ID[choice]) {
+    fromDevice(DEVICE_BY_ID[choice], "picked", "model selected on this device");
     return;
   }
 
-  // 3. Android, by model string.
-  if (IS_ANDROID && androidModel && sw) {
-    var e = findAndroid(androidModel.model);
-    if (e) {
-      var s = pickScreen(e[2], sw, sh);
-      var physMm = Math.min(s[0], s[1]) / s[2] * 25.4;
-      scale.pxPerMm = renderShort / physMm;
-      scale.renderPpi = scale.pxPerMm * 25.4;
-      scale.device = e[1] + (s[3] ? " (" + s[3] + " screen)" : "");
-      scale.method = "device database via " + androidModel.src + ": " + androidModel.model;
-      scale.confidence = "db";
-      // Aspect cross-check: catches a wrong table row or an unexpected panel variant.
-      var wantA = sh / sw, haveA = Math.max(s[0], s[1]) / Math.min(s[0], s[1]);
-      if (Math.abs(wantA - haveA) / haveA > 0.04) {
-        scale.confidence = "amb";
-        scale.note = "Reported aspect ratio " + wantA.toFixed(3) + " does not match this panel's " +
-                     haveA.toFixed(3) + ", so the database row may be wrong for this variant. " +
-                     "Check it with the verify overlay.";
-      }
-      return;
-    }
+  if (guess.devices.length === 1) {
+    fromDevice(guess.devices[0], "auto", "detected by " + guess.how);
+    return;
+  }
+  if (guess.devices.length > 1) {
+    fromDevice(guess.devices[0], "amb", "guessed from " + guess.how);
+    scale.note = "This signature is shared by " + guess.devices.length +
+      " panels with different densities, and no web API separates them. " +
+      "Confirm the model or the scale may be wrong.";
+    return;
   }
 
-  // 4. Honest fallback. Android sets densityDpi as an approximation of real ppi
-  //    and dpr = densityDpi / 160, so dpr * 160 recovers that approximation.
+  // Honest fallback. Android sets densityDpi as an approximation of real ppi
+  // and dpr = densityDpi / 160, so dpr * 160 recovers that approximation.
   var assumedDpi = IS_TOUCH ? 160 : 96;
   scale.pxPerMm = dpr * assumedDpi / 25.4;
   scale.renderPpi = scale.pxPerMm * 25.4;
-  scale.confidence = "est";
-  scale.device = androidModel ? ("unlisted model: " + androidModel.model)
-                              : "model not reported by this browser";
+  scale.device = "unidentified";
   scale.method = "estimate: devicePixelRatio x " + assumedDpi + " dpi";
-  scale.note = "This is an estimate and can be several percent out - and badly out if the phone's " +
-               "display-size or screen-zoom setting has been changed. Measure with the verify " +
-               "overlay and enter the true ppi.";
+  scale.confidence = "est";
+  scale.note = "No model is set, so this is only an estimate and can be several " +
+               "percent out. Pick the model, or enter the panel ppi.";
 }
 
 /** Sanity figure for the readout: the screen diagonal the current scale implies. */
 function impliedDiagonalIn() {
   var dpr = window.devicePixelRatio || 1;
-  var w = Math.min(screen.width || 0, screen.height || 0) * dpr;
-  var h = Math.max(screen.width || 0, screen.height || 0) * dpr;
+  var w = screenShort() * dpr, h = screenLong() * dpr;
   if (!scale.pxPerMm) return 0;
   return Math.sqrt(w * w + h * h) / (scale.pxPerMm * 25.4);
 }
@@ -613,9 +683,10 @@ var ctx = cv.getContext("2d", { alpha: false });
 var stage = document.getElementById("stage");
 var panel = document.getElementById("console");
 var badge = document.getElementById("badge");
+var setup = document.getElementById("setup");
 
 var hideTimer = null;
-var controlsVisible = true;
+var controlsVisible = false;
 
 function showControls(v) {
   controlsVisible = v;
@@ -658,7 +729,7 @@ function draw() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = "#FFFFFF";
   ctx.fillRect(0, 0, W, H);
-  if (!pxPerMmX) return;
+  if (!pxPerMmX) { syncControls(); return; }
 
   // Pixel-snapped square size: what the board is actually drawn at.
   var stepX = Math.max(1, Math.round(pxPerMmX * state.squareMm));
@@ -783,8 +854,8 @@ function drawArucoMarker(id, left, top, right, bottom) {
 /*
   Verify overlay: an ISO/IEC 7810 ID-1 card outline (85.60 x 53.98 mm) and a
   50 mm rule with 1 mm ticks. Hold a bank card or a steel rule against the glass;
-  if they match, the detected scale is right. Drawn in the console accent so it
-  can never be mistaken for part of the target - switch it off before capturing.
+  if they match, the scale is right. Drawn in the console accent so it can never
+  be mistaken for part of the target - switch it off before capturing.
 */
 function drawVerifyOverlay(W, H, pxPerMm) {
   var mm = function (v) { return v * pxPerMm; };
@@ -849,13 +920,15 @@ var el = {
   scaleVal: document.getElementById("scale-val"),
   scaleSrc: document.getElementById("scale-src"),
   scaleNote: document.getElementById("scale-note"),
-  alts: document.getElementById("alts"),
-  ppi: document.getElementById("ppi"),
-  ppiAuto: document.getElementById("ppi-auto"),
+  changeDev: document.getElementById("change-dev"),
   verify: document.getElementById("verify"),
   tips: document.getElementById("tips"),
   zoomwarn: document.getElementById("zoomwarn"),
-  hint: document.getElementById("hint")
+  dev: document.getElementById("dev"),
+  setupPpiWrap: document.getElementById("setup-ppi"),
+  ppi: document.getElementById("ppi"),
+  setupGo: document.getElementById("setup-go"),
+  setupDetected: document.getElementById("setup-detected")
 };
 
 el.sq.min = String(SQUARE_MIN_MM);
@@ -866,7 +939,7 @@ el.mk.max = String(MARKER_RATIO_MAX);
 el.mk.step = String(MARKER_RATIO_STEP);
 
 function syncControls() {
-  var g = lastGeom, t, markerPx, diag, badgeText;
+  var g = lastGeom, t, markerPx, badgeText, cls;
 
   el.checker.setAttribute("aria-pressed", String(state.boardType === "checker"));
   el.charuco.setAttribute("aria-pressed", String(state.boardType === "charuco"));
@@ -899,56 +972,27 @@ function syncControls() {
     el.geom.innerHTML = t;
   }
 
-  el.scalebox.className = "scalebox" +
-    (scale.confidence === "est" ? " est" : scale.confidence === "amb" ? " amb" : "");
+  cls = (scale.confidence === "est") ? " est" : (scale.confidence === "amb") ? " amb" : "";
+  el.scalebox.className = "scalebox" + cls;
   el.scaleVal.textContent = scale.pxPerMm.toFixed(3) + " px/mm";
-  diag = impliedDiagonalIn();
   el.scaleSrc.textContent =
-    scale.renderPpi.toFixed(0) + " ppi " + MIDDOT + " " + (scale.device || "unknown device") + "\n" +
-    scale.method + "\nimplies a " + diag.toFixed(2) + " inch screen";
+    scale.renderPpi.toFixed(0) + " ppi " + MIDDOT + " " + scale.device + "\n" +
+    scale.method + "\nimplies a " + impliedDiagonalIn().toFixed(2) + " inch screen";
   el.scaleNote.hidden = !scale.note;
   el.scaleNote.textContent = scale.note;
 
-  if (scale.alts) {
-    el.alts.hidden = false;
-    if (el.alts.getAttribute("data-built") !== scale.alts.join("|")) {
-      el.alts.setAttribute("data-built", scale.alts.join("|"));
-      el.alts.innerHTML = "";
-      scale.alts.forEach(function (name, i) {
-        var b = document.createElement("button");
-        b.type = "button";
-        b.textContent = name;
-        b.setAttribute("aria-pressed", String(i === scale.altIndex));
-        b.addEventListener("click", function (ev) {
-          ev.stopPropagation();
-          altChoice = i;
-          try { localStorage.setItem("charuco.alt.v1", String(i)); } catch (err) {}
-          resolveScale(); draw(); armHide();
-        });
-        el.alts.appendChild(b);
-      });
-    } else {
-      Array.prototype.forEach.call(el.alts.children, function (b, i) {
-        b.setAttribute("aria-pressed", String(i === scale.altIndex));
-      });
-    }
-  } else {
-    el.alts.hidden = true;
-    el.alts.setAttribute("data-built", "");
-  }
-
-  if (document.activeElement !== el.ppi) {
-    el.ppi.value = manualPpi ? String(Math.round(manualPpi * 10) / 10) : "";
-  }
   el.verify.setAttribute("aria-pressed", String(state.verify));
 
-  badgeText = scale.confidence === "db"     ? "scale ok " + scale.renderPpi.toFixed(0) + " ppi"
-            : scale.confidence === "manual" ? "manual " + scale.renderPpi.toFixed(0) + " ppi"
-            : scale.confidence === "amb"    ? "confirm model"
-            :                                 "estimated scale";
+  badgeText =
+      scale.confidence === "picked" ? scale.renderPpi.toFixed(0) + " ppi " + MIDDOT + " set"
+    : scale.confidence === "manual" ? scale.renderPpi.toFixed(0) + " ppi " + MIDDOT + " manual"
+    : scale.confidence === "auto"   ? scale.renderPpi.toFixed(0) + " ppi " + MIDDOT + " auto"
+    : scale.confidence === "amb"    ? "confirm model"
+    :                                 "set model";
   badge.textContent = badgeText;
-  badge.className = (scale.confidence === "db" || scale.confidence === "manual") ? ""
-                  : scale.confidence === "amb" ? "amb" : "est";
+  badge.className = (scale.confidence === "picked" || scale.confidence === "manual" ||
+                     scale.confidence === "auto") ? ""
+                  : (scale.confidence === "amb") ? "amb" : "est";
 }
 
 function onChange() { armHide(); draw(); }
@@ -965,26 +1009,134 @@ el.verify.addEventListener("click", function (e) {
   state.verify = !state.verify;
   onChange();
 });
-el.ppi.addEventListener("change", function () {
-  var v = parseFloat(el.ppi.value);
-  manualPpi = (isFinite(v) && v >= 60 && v <= 900) ? v : null;
-  try {
-    if (manualPpi) localStorage.setItem("charuco.ppi.v1", String(manualPpi));
-    else localStorage.removeItem("charuco.ppi.v1");
-  } catch (e) {}
-  resolveScale(); onChange();
-});
-el.ppiAuto.addEventListener("click", function (e) {
-  e.stopPropagation();
-  manualPpi = null;
-  try { localStorage.removeItem("charuco.ppi.v1"); } catch (err) {}
-  resolveScale(); onChange();
-});
+el.changeDev.addEventListener("click", function (e) { e.stopPropagation(); openSetup(); });
+
 panel.addEventListener("click", function (e) { e.stopPropagation(); armHide(); });
+panel.addEventListener("pointerup", function (e) { e.stopPropagation(); });
 panel.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
 
-/* Tap the board to toggle the console, exactly as on Android. */
-stage.addEventListener("click", function () { showControls(!controlsVisible); });
+/*
+  Tap the board to toggle the console. `click` alone is not dependable here: on
+  iOS Safari a tap on the <canvas> does not reliably deliver a click to a plain
+  <div> ancestor, which is why the controls were unreachable.
+
+  Bind exactly one of pointerup / click rather than both. Binding both means
+  every tap fires twice and needs a time debounce to coalesce, and any debounce
+  long enough to catch the pair is also long enough to swallow a genuine quick
+  second tap. PointerEvent has been supported since iOS 13, so the pointerup
+  branch covers every device this targets; click is the fallback for older
+  engines. The short guard is only a safety net against a synthesised pair.
+*/
+var lastTap = 0;
+function stageTap(e) {
+  var tgt = e.target;
+  if (tgt && tgt.closest && tgt.closest("#console, #badge, #zoomwarn, #setup")) return;
+  var now = Date.now();
+  if (now - lastTap < 60) return;
+  lastTap = now;
+  firstGesture();
+  showControls(!controlsVisible);
+}
+stage.addEventListener(window.PointerEvent ? "pointerup" : "click", stageTap);
+
+badge.addEventListener("click", function (e) {
+  e.stopPropagation();
+  firstGesture();
+  showControls(true);
+});
+
+/* ===========================================================================
+   Device picker
+   =========================================================================== */
+function buildDeviceList() {
+  var groups = [], byGroup = {}, i, d, og, opt;
+  for (i = 0; i < DEVICES.length; i++) {
+    d = DEVICES[i];
+    if (!byGroup[d.g]) { byGroup[d.g] = []; groups.push(d.g); }
+    byGroup[d.g].push(d);
+  }
+  el.dev.innerHTML = "";
+
+  if (guess.devices.length) {
+    og = document.createElement("optgroup");
+    og.label = guess.devices.length > 1 ? "Best guesses for this screen" : "Detected";
+    guess.devices.forEach(function (gd) {
+      opt = document.createElement("option");
+      opt.value = gd.id;
+      opt.textContent = gd.n;
+      og.appendChild(opt);
+    });
+    el.dev.appendChild(og);
+  }
+
+  groups.forEach(function (gname) {
+    var grp = document.createElement("optgroup");
+    grp.label = gname;
+    byGroup[gname].forEach(function (d) {
+      var o = document.createElement("option");
+      o.value = d.id;
+      o.textContent = d.n;
+      grp.appendChild(o);
+    });
+    el.dev.appendChild(grp);
+  });
+
+  og = document.createElement("optgroup");
+  og.label = "Other";
+  opt = document.createElement("option");
+  opt.value = "manual";
+  opt.textContent = "Not listed - enter panel ppi";
+  og.appendChild(opt);
+  el.dev.appendChild(og);
+
+  // Preselect: an explicit earlier choice, else the best guess.
+  var want = (choice && (choice === "manual" || DEVICE_BY_ID[choice])) ? choice
+           : (guess.devices.length ? guess.devices[0].id : "manual");
+  el.dev.value = want;
+  onDevChange();
+
+  el.setupDetected.textContent = guess.devices.length
+    ? "Detected: " + guess.devices[0].n + " (" + guess.how + ")."
+      + (guess.devices.length > 1
+          ? " Other panels share this signature, so please confirm." : "")
+    : "Could not detect this device: " + guess.how + ".";
+}
+
+function onDevChange() {
+  var manual = el.dev.value === "manual";
+  el.setupPpiWrap.hidden = !manual;
+  if (manual && !el.ppi.value && manualPpi) el.ppi.value = String(manualPpi);
+}
+el.dev.addEventListener("change", onDevChange);
+
+function openSetup() {
+  buildDeviceList();
+  showControls(false);
+  setup.hidden = false;
+}
+
+el.setupGo.addEventListener("click", function (e) {
+  e.stopPropagation();
+  var v = el.dev.value;
+  if (v === "manual") {
+    var n = parseFloat(el.ppi.value);
+    if (!isFinite(n) || n < 60 || n > 900) {
+      el.ppi.focus();
+      return;                                  // nothing to apply yet
+    }
+    manualPpi = n;
+    choice = "manual";
+    save(PREF_PPI, String(n));
+  } else {
+    choice = v;
+  }
+  save(PREF_DEV, choice);
+  setup.hidden = true;
+  firstGesture();
+  resolveScale();
+  resize();
+  showControls(true);
+});
 
 /* ===========================================================================
    Web-only housekeeping the Android app gets from the OS
@@ -993,9 +1145,8 @@ stage.addEventListener("click", function () { showControls(!controlsVisible); })
 /* Screen brightness has no web API - say so rather than pretend. */
 el.tips.textContent =
   "Set screen brightness to maximum by hand - the web has no brightness API.\n" +
-  "Leave the phone's display-size / screen-zoom setting at its default.";
+  "On iPhone keep Display Zoom on Default; on Android keep display size at default.";
 
-/* The equivalent of FLAG_KEEP_SCREEN_ON. */
 var wakeLock = null;
 function keepAwake() {
   try {
@@ -1003,7 +1154,7 @@ function keepAwake() {
       navigator.wakeLock.request("screen").then(function (lock) {
         wakeLock = lock;
         lock.addEventListener("release", function () { wakeLock = null; });
-      })["catch"](function () { /* not permitted in this frame; the screen may dim */ });
+      })["catch"](function () { /* not permitted here; the screen may dim */ });
     }
   } catch (e) { /* ignore */ }
 }
@@ -1011,15 +1162,18 @@ document.addEventListener("visibilitychange", function () {
   if (document.visibilityState === "visible" && !wakeLock) keepAwake();
 });
 
-/* Fullscreen on the first tap: the only way to reclaim the browser's chrome. */
-stage.addEventListener("click", function () {
+/* Fullscreen and the wake lock both need a user gesture; take the first one. */
+var gestureDone = false;
+function firstGesture() {
+  if (gestureDone) return;
+  gestureDone = true;
   keepAwake();
   var d = document;
   if (!d.fullscreenElement && d.documentElement.requestFullscreen) {
     var p = d.documentElement.requestFullscreen({ navigationUI: "hide" });
     if (p && p["catch"]) p["catch"](function () {});
   }
-}, { once: true });
+}
 
 /*
   Pinch zoom and desktop page zoom both threaten physical accuracy. Page zoom is
@@ -1046,7 +1200,7 @@ if (window.visualViewport) {
 });
 document.addEventListener("dblclick", function (e) { e.preventDefault(); }, { passive: false });
 
-/* The published skeleton supplies its own viewport meta; make sure ours wins. */
+/* Some hosts wrap the page in their own document; make sure our viewport wins. */
 (function ensureViewport() {
   var want = "width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, " +
              "user-scalable=no, viewport-fit=cover";
@@ -1068,33 +1222,32 @@ watchDpr();
 if (window.ResizeObserver) new ResizeObserver(function () { resize(); }).observe(stage);
 window.addEventListener("resize", resize);
 window.addEventListener("orientationchange", function () {
-  setTimeout(function () { resolveScale(); resize(); }, 250);
+  setTimeout(function () { computeGuessAndScale(); resize(); }, 250);
 });
 
-/* ---- boot: draw immediately with what we know, refine once UA hints land ---- */
-function boot() {
+/* ---- boot ---- */
+var androidModel = null;
+function computeGuessAndScale() {
+  computeGuess(androidModel);
   resolveScale();
+}
+
+function finishBoot() {
+  computeGuessAndScale();
   resize();
   checkZoom();
-  armHide();
-  if (IS_ANDROID) {
-    readAndroidModel().then(function (m) {
-      androidModel = m;
-      resolveScale();
-      draw();
-    });
-  }
-  // A one-off nudge that the board is tappable, then out of the way.
-  setTimeout(function () {
-    if (controlsVisible) return;
-    el.hint.hidden = false;
-    setTimeout(function () { el.hint.style.opacity = "0"; }, 2200);
-    setTimeout(function () { el.hint.hidden = true; }, 2800);
-  }, CONTROLS_HIDE_DELAY_MS + 400);
+  // Ask once, then remember. A stored choice goes straight to the board.
+  if (!choice || (choice !== "manual" && !DEVICE_BY_ID[choice])) openSetup();
+  else showControls(true);
+}
+
+if (IS_ANDROID) {
+  readAndroidModel().then(function (m) { androidModel = m; finishBoot(); });
+} else {
+  finishBoot();
 }
 
 if (document.fonts && document.fonts.ready) {
   document.fonts.ready.then(function () { draw(); });
 }
-boot();
 </script>
