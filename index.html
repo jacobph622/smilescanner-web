@@ -547,6 +547,12 @@ var DEVICES = [
   { id:"px9fc", g:"Google Pixel", n:["Pixel 9 Pro Fold (cover)"], p:[1080,2424], ppi:422, m:["pixel 9 pro fold"] },
   { id:"px10fi", g:"Google Pixel", n:["Pixel 10 Pro Fold (inner)"], p:[2076,2152], ppi:373, m:["pixel 10 pro fold"] },
   { id:"px10fc", g:"Google Pixel", n:["Pixel 10 Pro Fold (cover)"], p:[1080,2364], ppi:408, m:["pixel 10 pro fold"] },
+  { id:"px10a", g:"Google Pixel", n:["Pixel 10a"], p:[1080,2424], ppi:422, m:["pixel 10a"] },
+  { id:"px11", g:"Google Pixel", n:["Pixel 11"], p:[1080,2424], ppi:422, m:["pixel 11"] },
+  { id:"px11pro", g:"Google Pixel", n:["Pixel 11 Pro"], p:[1280,2856], ppi:495, m:["pixel 11 pro"] },
+  { id:"px11pxl", g:"Google Pixel", n:["Pixel 11 Pro XL"], p:[1344,2992], ppi:486, m:["pixel 11 pro xl"] },
+  { id:"px11fi", g:"Google Pixel", n:["Pixel 11 Pro Fold (inner)"], p:[2076,2152], ppi:372, m:["pixel 11 pro fold"] },
+  { id:"px11fc", g:"Google Pixel", n:["Pixel 11 Pro Fold (cover)"], p:[1080,2342], ppi:399, m:["pixel 11 pro fold"] },
   { id:"s10e", g:"Samsung Galaxy", n:["Galaxy S10e"], p:[1080,2280], ppi:438, m:["sm-g970*"] },
   { id:"s10", g:"Samsung Galaxy", n:["Galaxy S10"], p:[1440,3040], ppi:550, m:["sm-g973*"] },
   { id:"s10p", g:"Samsung Galaxy", n:["Galaxy S10+"], p:[1440,3040], ppi:522, m:["sm-g975*"] },
@@ -576,6 +582,25 @@ var DEVICES = [
   { id:"a52", g:"Samsung Galaxy", n:["Galaxy A52"], p:[1080,2400], ppi:407, m:["sm-a525*", "sm-a526*"] },
   { id:"a53", g:"Samsung Galaxy", n:["Galaxy A53"], p:[1080,2400], ppi:407.61, m:["sm-a536*"] },
   { id:"a54", g:"Samsung Galaxy", n:["Galaxy A54"], p:[1080,2340], ppi:401.36, m:["sm-a546*"] },
+  { id:"s26", g:"Samsung Galaxy", n:["Galaxy S26"], p:[1080,2340], ppi:410.93, m:["sm-s942*"] },
+  { id:"s26p", g:"Samsung Galaxy", n:["Galaxy S26+"], p:[1440,3120], ppi:516.15, m:["sm-s947*"] },
+  { id:"s26u", g:"Samsung Galaxy", n:["Galaxy S26 Ultra"], p:[1440,3120], ppi:499.04, m:["sm-s948*"] },
+  { id:"s26fe", g:"Samsung Galaxy", n:["Galaxy S26 FE"], p:[1080,2340], ppi:382.59, m:["sm-s741*"] },
+  { id:"s25e", g:"Samsung Galaxy", n:["Galaxy S25 Edge"], p:[1440,3120], ppi:516.15, m:["sm-s937*"] },
+  { id:"s25fe", g:"Samsung Galaxy", n:["Galaxy S25 FE"], p:[1080,2340], ppi:382.59, m:["sm-s731*"] },
+  { id:"s24fe", g:"Samsung Galaxy", n:["Galaxy S24 FE"], p:[1080,2340], ppi:384.84, m:["sm-s721*"] },
+  { id:"s21fe", g:"Samsung Galaxy", n:["Galaxy S21 FE"], p:[1080,2340], ppi:402.69, m:["sm-g990*"] },
+  { id:"s20fe", g:"Samsung Galaxy", n:["Galaxy S20 FE"], p:[1080,2400], ppi:404.89, m:["sm-g780*", "sm-g781*"] },
+  { id:"a15", g:"Samsung Galaxy", n:["Galaxy A15"], p:[1080,2340], ppi:399.4, m:["sm-a155*", "sm-a156*"] },
+  { id:"a16", g:"Samsung Galaxy", n:["Galaxy A16"], p:[1080,2340], ppi:387.11, m:["sm-a166*"] },
+  { id:"a17", g:"Samsung Galaxy", n:["Galaxy A17"], p:[1080,2340], ppi:387.11, m:["sm-a176*"] },
+  { id:"a25", g:"Samsung Galaxy", n:["Galaxy A25"], p:[1080,2340], ppi:398.67, m:["sm-a256*"] },
+  { id:"a26", g:"Samsung Galaxy", n:["Galaxy A26"], p:[1080,2340], ppi:387.11, m:["sm-a266*"] },
+  { id:"a35", g:"Samsung Galaxy", n:["Galaxy A35"], p:[1080,2340], ppi:388.95, m:["sm-a356*"] },
+  { id:"a36", g:"Samsung Galaxy", n:["Galaxy A36"], p:[1080,2340], ppi:384.84, m:["sm-a366*"] },
+  { id:"a55", g:"Samsung Galaxy", n:["Galaxy A55"], p:[1080,2340], ppi:388.95, m:["sm-a556*"] },
+  { id:"a56", g:"Samsung Galaxy", n:["Galaxy A56"], p:[1080,2340], ppi:384.84, m:["sm-a566*"] },
+  { id:"a57", g:"Samsung Galaxy", n:["Galaxy A57"], p:[1080,2340], ppi:382.59, m:["sm-a576*"] },
   { id:"f1i", g:"Samsung Galaxy", n:["Galaxy Fold (inner)"], p:[1536,2152], ppi:362, m:["sm-f900*"] },
   { id:"f1c", g:"Samsung Galaxy", n:["Galaxy Fold (cover)"], p:[720,1680], ppi:399, m:["sm-f900*"] },
   { id:"f2i", g:"Samsung Galaxy", n:["Galaxy Z Fold2 (inner)"], p:[1768,2208], ppi:373, m:["sm-f916*"] },
@@ -595,9 +620,31 @@ var DEVICES = [
   { id:"z5c", g:"Samsung Galaxy", n:["Galaxy Z Flip5 (cover)"], p:[720,748], ppi:306, m:["sm-f731*"] },
   { id:"z6i", g:"Samsung Galaxy", n:["Galaxy Z Flip6 (inner)"], p:[1080,2640], ppi:425.43, m:["sm-f741*"] },
   { id:"z6c", g:"Samsung Galaxy", n:["Galaxy Z Flip6 (cover)"], p:[720,748], ppi:306, m:["sm-f741*"] },
+  { id:"f7i", g:"Samsung Galaxy", n:["Galaxy Z Fold7 (inner)"], p:[1968,2184], ppi:367.67, m:["sm-f966*"] },
+  { id:"f7c", g:"Samsung Galaxy", n:["Galaxy Z Fold7 (cover)"], p:[1080,2520], ppi:422.56, m:["sm-f966*"] },
+  { id:"f8i", g:"Samsung Galaxy", n:["Galaxy Z Fold8 (inner)"], p:[1848,2448], ppi:403.25, m:["sm-f971*"] },
+  { id:"f8c", g:"Samsung Galaxy", n:["Galaxy Z Fold8 (cover)"], p:[1248,1972], ppi:428.3, m:["sm-f971*"] },
+  { id:"f8ui", g:"Samsung Galaxy", n:["Galaxy Z Fold8 Ultra (inner)"], p:[2256,2504], ppi:421.51, m:["sm-f976*"] },
+  { id:"f8uc", g:"Samsung Galaxy", n:["Galaxy Z Fold8 Ultra (cover)"], p:[1080,2520], ppi:422.56, m:["sm-f976*"] },
+  { id:"z7i", g:"Samsung Galaxy", n:["Galaxy Z Flip7 (inner)"], p:[1080,2520], ppi:399.99, m:["sm-f766*"] },
+  { id:"z7c", g:"Samsung Galaxy", n:["Galaxy Z Flip7 (cover)"], p:[948,1048], ppi:342.5, m:["sm-f766*"] },
+  { id:"z7fi", g:"Samsung Galaxy", n:["Galaxy Z Flip7 FE (inner)"], p:[1080,2640], ppi:425.43, m:["sm-f761*"] },
+  { id:"z7fc", g:"Samsung Galaxy", n:["Galaxy Z Flip7 FE (cover)"], p:[720,748], ppi:306.28, m:["sm-f761*"] },
+  { id:"z8i", g:"Samsung Galaxy", n:["Galaxy Z Flip8 (inner)"], p:[1080,2520], ppi:399.99, m:["sm-f776*"] },
+  { id:"z8c", g:"Samsung Galaxy", n:["Galaxy Z Flip8 (cover)"], p:[948,1048], ppi:342.5, m:["sm-f776*"] },
+  { id:"mg25", g:"Motorola", n:["moto g (2025)"], p:[720,1604], ppi:262.42, m:["moto g - 2025"] },
+  { id:"mgp25", g:"Motorola", n:["moto g power (2025)"], p:[1080,2388], ppi:387, m:["moto g power - 2025"] },
+  { id:"mgs25", g:"Motorola", n:["moto g stylus (2025)"], p:[1220,2712], ppi:444, m:["moto g stylus - 2025"] },
+  { id:"medge25", g:"Motorola", n:["motorola edge (2025)"], p:[1220,2712], ppi:446, m:["motorola edge 2025"] },
+  { id:"mrz25", g:"Motorola", n:["motorola razr (2025)"], p:[1080,2640], ppi:413, m:["motorola razr 2025"] },
+  { id:"mrzp25i", g:"Motorola", n:["motorola razr+ (2025) (inner)"], p:[1080,2640], ppi:413, m:["motorola razr plus 2025"] },
+  { id:"mrzp25c", g:"Motorola", n:["motorola razr+ (2025) (cover)"], p:[1080,1272], ppi:417, m:["motorola razr plus 2025"] },
   { id:"op13", g:"Other Android", n:["OnePlus 13"], p:[1440,3168], ppi:510, m:["oneplus 13", "cph2649", "cph2653", "pjz110"] },
   { id:"opn", g:"Other Android", n:["OnePlus Nord"], p:[1080,2400], ppi:408, m:["oneplus nord", "ac2003", "ac2001"] },
-  { id:"rn13", g:"Other Android", n:["Redmi Note 13"], p:[1080,2400], ppi:394.57, m:["redmi note 13", "2312dra50"] }
+  { id:"rn13", g:"Other Android", n:["Redmi Note 13"], p:[1080,2400], ppi:394.57, m:["redmi note 13", "2312dra50"] },
+  { id:"op12", g:"Other Android", n:["OnePlus 12"], p:[1440,3168], ppi:510, m:["oneplus 12"] },
+  { id:"op13r", g:"Other Android", n:["OnePlus 13R"], p:[1264,2780], ppi:450, m:["oneplus 13r", "cph2647", "cph2645", "cph2691"] },
+  { id:"op15", g:"Other Android", n:["OnePlus 15"], p:[1272,2772], ppi:450, m:["oneplus 15", "cph2747", "plk110"] }
 ];
 
 var DEVICE_BY_ID = {};
@@ -937,7 +984,10 @@ DEVICES.forEach(function (d) {
   // marketing name, as Pixel keys are. Counted as codes, "pixel 8" would prefix-match
   // a search for "pixel 8 pro" and tie the Pixel 8 with the Pro.
   var nameForms = d.n.map(compact);
-  var codes = (d.m || []).map(function (k) { return compact(k.replace(/\*$/, "")); })
+  // A real code is one token (sm-s911*, cph2649, 23129raa4g); a key with a space
+  // is a marketing name ("pixel 11 pro fold") and must not act as a code prefix.
+  var codes = (d.m || []).filter(function (k) { return !/\s/.test(k); })
+                         .map(function (k) { return compact(k.replace(/\*$/, "")); })
                          .filter(function (c) { return /\d/.test(c) && nameForms.indexOf(c) < 0; });
   d.n.forEach(function (name) {
     SEARCH.push({
